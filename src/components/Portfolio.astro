@@ -63,19 +63,20 @@ const projects = [
       {projects.map((project) => (
         <a
           href={project.link}
-          target={project.link.startsWith('http') ? '_blank' : '_self'}
-          rel={project.link.startsWith('http') ? 'noopener noreferrer' : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
           class="group block rounded-xl border border-surface-border bg-surface-light/20 overflow-hidden hover:border-accent/30 hover:shadow-xl hover:shadow-accent-glow/10 transition-all duration-300"
         >
           <!-- Preview Area -->
           <div class={`relative aspect-[16/9] bg-gradient-to-br ${project.gradient} flex items-center justify-center overflow-hidden`}>
-            <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+            <!-- Subtle radial glow -->
+            <div class={`absolute w-40 h-40 rounded-full bg-gradient-to-br ${project.gradient} opacity-60 blur-3xl`}></div>
             <div class="relative text-center px-6">
-              <p class={`text-3xl font-extrabold ${project.accentColor} mb-1`}>{project.title}</p>
-              <p class="text-sm text-white/50">{project.subtitle}</p>
+              <p class={`text-4xl font-extrabold ${project.accentColor} mb-2 group-hover:scale-105 transition-transform duration-300`}>{project.title}</p>
+              <p class="text-sm text-white/40 tracking-wide">{project.subtitle}</p>
             </div>
             <!-- Visit indicator -->
-            <div class="absolute top-4 right-4 flex items-center gap-1.5 rounded-md bg-black/30 backdrop-blur-sm px-3 py-1.5 text-xs text-white/60 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="absolute top-4 right-4 flex items-center gap-1.5 rounded-full bg-white/10 backdrop-blur-sm px-3 py-1.5 text-xs text-white/50 opacity-0 group-hover:opacity-100 transition-all duration-300">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
               </svg>
