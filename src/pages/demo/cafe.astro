@@ -160,32 +160,13 @@ import Layout from '../../layouts/Layout.astro';
   .about-visual {
     aspect-ratio: 4/5;
     border-radius: 1rem;
-    background:
-      radial-gradient(circle at 30% 40%, #D2691E30, transparent 60%),
-      radial-gradient(circle at 70% 60%, #8B451320, transparent 60%),
-      linear-gradient(135deg, #3D2317, #2C1810);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
     overflow: hidden;
+    position: relative;
   }
-  .about-visual::before {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    border-radius: 1rem;
-    border: 1px solid #D2B48C20;
-    pointer-events: none;
-  }
-  .about-emoji {
-    font-size: 5rem;
-    filter: drop-shadow(0 10px 30px rgba(0,0,0,0.3));
-    animation: float 6s ease-in-out infinite;
-  }
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-12px); }
+  .about-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .about-stats {
     display: grid;
@@ -310,10 +291,6 @@ import Layout from '../../layouts/Layout.astro';
     border-radius: 0.75rem;
     overflow: hidden;
     position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.5rem;
     transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
     cursor: pointer;
   }
@@ -321,38 +298,44 @@ import Layout from '../../layouts/Layout.astro';
     transform: scale(1.02);
     box-shadow: 0 20px 40px -10px rgba(44, 24, 16, 0.15);
   }
-  .gallery-cell:nth-child(1) {
-    grid-column: span 2;
-    background: linear-gradient(135deg, #3D2317, #5C3620, #3D2317);
+  .gallery-cell:nth-child(1) { grid-column: span 2; }
+  .gallery-cell:nth-child(6) { grid-column: span 2; }
+  .gallery-cell img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
   }
-  .gallery-cell:nth-child(2) {
-    background: linear-gradient(135deg, #D2691E40, #8B451330);
-    background-color: #E8DDD3;
-  }
-  .gallery-cell:nth-child(3) {
-    background: linear-gradient(135deg, #2C1810, #4A2C1A);
-  }
-  .gallery-cell:nth-child(4) {
-    background: linear-gradient(135deg, #8B451320, #D2691E15);
-    background-color: #DDD3C7;
-  }
-  .gallery-cell:nth-child(5) {
-    background: linear-gradient(135deg, #4A2C1A, #2C1810);
-  }
-  .gallery-cell:nth-child(6) {
-    grid-column: span 2;
-    background: linear-gradient(135deg, #E8DDD3, #D2C4B4);
+  .gallery-cell:hover img {
+    transform: scale(1.08);
   }
   .gallery-cell::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(44, 24, 16, 0.2), transparent);
+    background: linear-gradient(to top, rgba(44, 24, 16, 0.25), transparent);
     opacity: 0;
     transition: opacity 0.3s;
   }
   .gallery-cell:hover::after {
     opacity: 1;
+  }
+  .gallery-label {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    color: #F5F0EB;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    font-weight: 300;
+    z-index: 1;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.3s;
+  }
+  .gallery-cell:hover .gallery-label {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   /* Location */
@@ -362,41 +345,38 @@ import Layout from '../../layouts/Layout.astro';
     gap: 3rem;
     align-items: start;
   }
-  .map-placeholder {
-    aspect-ratio: 4/3;
+  .map-container {
     border-radius: 1rem;
-    background:
-      repeating-linear-gradient(0deg, #2C181008 0px, #2C181008 1px, transparent 1px, transparent 40px),
-      repeating-linear-gradient(90deg, #2C181008 0px, #2C181008 1px, transparent 1px, transparent 40px),
-      linear-gradient(135deg, #E8DDD3, #DDD3C7);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    position: relative;
     overflow: hidden;
+    aspect-ratio: 4/3;
+    position: relative;
   }
-  .map-placeholder::before {
-    content: '';
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    background: #D2691E;
-    border-radius: 50%;
-    box-shadow: 0 0 0 4px #D2691E30, 0 0 0 8px #D2691E15;
-    animation: mapPing 2s ease-in-out infinite;
+  .map-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
   }
-  @keyframes mapPing {
-    0%, 100% { box-shadow: 0 0 0 4px #D2691E30, 0 0 0 8px #D2691E15; }
-    50% { box-shadow: 0 0 0 8px #D2691E20, 0 0 0 16px #D2691E08; }
+  .map-directions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    background: #2C1810;
+    color: #F5F0EB;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    transition: all 0.3s;
   }
-  .map-label {
-    margin-top: 3rem;
-    font-size: 0.75rem;
-    color: #8B7355;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+  .map-directions:hover {
+    background: #8B4513;
+    transform: translateY(-1px);
+  }
+  .map-directions svg {
+    width: 16px;
+    height: 16px;
   }
   .info-block { margin-bottom: 2rem; }
   .info-label {
@@ -653,7 +633,7 @@ import Layout from '../../layouts/Layout.astro';
   <div class="section-inner">
     <div class="about-grid">
       <div class="about-visual">
-        <span class="about-emoji">&#9749;</span>
+        <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=750&fit=crop" alt="카페 바리스타" loading="lazy" />
       </div>
       <div>
         <p class="section-label">About Us</p>
@@ -868,22 +848,28 @@ import Layout from '../../layouts/Layout.astro';
 
     <div class="gallery-grid">
       <div class="gallery-cell">
-        <span style="font-size: 3rem; opacity: 0.8;">&#9749; &#127861;</span>
+        <img src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=500&fit=crop" alt="카페 내부" loading="lazy" />
+        <span class="gallery-label">카페 내부</span>
       </div>
       <div class="gallery-cell">
-        <span style="opacity: 0.7;">&#127846;</span>
+        <img src="https://images.unsplash.com/photo-1511920170033-f8396924c348?w=400&h=500&fit=crop" alt="커피 한 잔" loading="lazy" />
+        <span class="gallery-label">시그니처 블렌드</span>
       </div>
       <div class="gallery-cell">
-        <span style="filter: brightness(2); opacity: 0.6;">&#128218;</span>
+        <img src="https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=400&h=500&fit=crop" alt="좌석 공간" loading="lazy" />
+        <span class="gallery-label">아늑한 좌석</span>
       </div>
       <div class="gallery-cell">
-        <span style="opacity: 0.7;">&#127856;</span>
+        <img src="https://images.unsplash.com/photo-1486427944544-d2c246c4df8d?w=400&h=500&fit=crop" alt="디저트" loading="lazy" />
+        <span class="gallery-label">수제 디저트</span>
       </div>
       <div class="gallery-cell">
-        <span style="filter: brightness(2); opacity: 0.6;">&#127926;</span>
+        <img src="https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=400&h=500&fit=crop" alt="원두" loading="lazy" />
+        <span class="gallery-label">오늘의 원두</span>
       </div>
       <div class="gallery-cell">
-        <span style="font-size: 2rem; opacity: 0.6; letter-spacing: 1rem;">&#127793; &#9749; &#128214;</span>
+        <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&h=500&fit=crop" alt="테라스" loading="lazy" />
+        <span class="gallery-label">테라스 공간</span>
       </div>
     </div>
   </div>
@@ -896,8 +882,27 @@ import Layout from '../../layouts/Layout.astro';
     <h2 class="section-title" style="margin-bottom: 2.5rem;">오시는 길</h2>
 
     <div class="location-grid">
-      <div class="map-placeholder">
-        <span class="map-label">서울시 마포구 연남동</span>
+      <div>
+        <div class="map-container">
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3162.5!2d126.9234!3d37.5665!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzfCsDMzJzU5LjQiTiAxMjbCsDU1JzI0LjIiRQ!5e0!3m2!1sko!2skr!4v1"
+            allowfullscreen=""
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+        <a
+          href="https://map.naver.com/p/search/%EC%84%9C%EC%9A%B8%EC%8B%9C%20%EB%A7%88%ED%8F%AC%EA%B5%AC%20%EC%97%B0%EB%82%A8%EB%A1%9C%2042%EA%B8%B8%2015"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="map-directions"
+        >
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          네이버 지도에서 길찾기
+        </a>
       </div>
       <div>
         <div class="info-block">
