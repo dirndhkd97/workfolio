@@ -184,11 +184,68 @@
 
       <button
         type="submit"
+        id="submit-btn"
         class="mt-8 w-full rounded-lg bg-accent py-4 text-base font-semibold text-white hover:bg-accent-light shadow-lg shadow-accent-glow transition-all"
       >
         무료 상담 신청하기
       </button>
     </form>
+
+    <!-- 제출 완료 화면 -->
+    <div id="contact-success" class="hidden rounded-xl border border-surface-border bg-surface-light/30 p-10 sm:p-14 text-center">
+      <div class="mx-auto mb-6 w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
+        <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+      <h3 class="text-2xl font-bold text-white mb-3">상담 신청이 접수되었습니다</h3>
+      <p class="text-muted leading-relaxed mb-2">
+        빠른 시일 내에 연락드리겠습니다.
+      </p>
+      <p class="text-muted text-sm mb-8">
+        급한 문의는 <a href="mailto:dirndhkd97@gmail.com" class="text-accent-light hover:underline">dirndhkd97@gmail.com</a>으로 메일 주세요.
+      </p>
+
+      <div id="submitted-summary" class="rounded-lg border border-surface-border bg-surface/50 p-6 text-left mb-8">
+        <p class="text-xs font-semibold text-accent-light font-mono mb-4">// 신청 내역</p>
+        <dl class="space-y-3 text-sm">
+          <div class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">이름</dt>
+            <dd id="sum-name" class="text-white"></dd>
+          </div>
+          <div class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">연락처</dt>
+            <dd id="sum-phone" class="text-white"></dd>
+          </div>
+          <div class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">이메일</dt>
+            <dd id="sum-email" class="text-white"></dd>
+          </div>
+          <div class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">유형</dt>
+            <dd id="sum-type" class="text-white"></dd>
+          </div>
+          <div class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">예산</dt>
+            <dd id="sum-budget" class="text-white"></dd>
+          </div>
+          <div id="sum-message-row" class="flex gap-3">
+            <dt class="text-muted/60 w-20 shrink-0">설명</dt>
+            <dd id="sum-message" class="text-white"></dd>
+          </div>
+        </dl>
+      </div>
+
+      <button
+        id="reset-form-btn"
+        class="inline-flex items-center gap-2 rounded-lg border border-surface-border px-6 py-3 text-sm font-medium text-muted hover:border-accent/50 hover:text-white transition-all"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        새 상담 신청하기
+      </button>
+    </div>
   </div>
 </section>
 
@@ -252,19 +309,90 @@
     });
   });
 
-  // Form submit
+  // Label maps for display
+  const typeLabels: Record<string, string> = {
+    landing: '랜딩페이지',
+    corporate: '기업 홈페이지',
+    shopping: '쇼핑몰',
+    app: '모바일 앱',
+    vibe: '바이브코딩 유지보수',
+    other: '기타 / 상담 후 결정',
+  };
+  const budgetLabels: Record<string, string> = {
+    '50': '50만원 이하',
+    '50-100': '50 ~ 100만원',
+    '100-300': '100 ~ 300만원',
+    '300-500': '300 ~ 500만원',
+    '500+': '500만원 이상',
+    consult: '상담 후 결정',
+  };
+
   const form = document.getElementById('contact-form') as HTMLFormElement;
+  const successEl = document.getElementById('contact-success') as HTMLDivElement;
+  const resetBtn = document.getElementById('reset-form-btn') as HTMLButtonElement;
+
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(form));
-    console.log('Form submitted:', data);
-    alert('상담 신청이 접수되었습니다. 빠르게 연락드리겠습니다!');
+    const data = Object.fromEntries(new FormData(form)) as Record<string, string>;
+
+    // 버튼 로딩 상태
+    submitBtn.disabled = true;
+    submitBtn.textContent = '전송 중...';
+
+    try {
+      // API 호출
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) throw new Error('API error');
+    } catch {
+      // API 실패해도 확인 화면은 보여줌 (오프라인 등)
+      console.warn('API call failed, but showing success screen');
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = '무료 상담 신청하기';
+
+    // Fill summary
+    (document.getElementById('sum-name') as HTMLElement).textContent = data.name || '-';
+    (document.getElementById('sum-phone') as HTMLElement).textContent = data.phone || '-';
+    (document.getElementById('sum-email') as HTMLElement).textContent = data.email || '-';
+    (document.getElementById('sum-type') as HTMLElement).textContent = typeLabels[data.type] || '미선택';
+    (document.getElementById('sum-budget') as HTMLElement).textContent = budgetLabels[data.budget] || '미선택';
+
+    const msgRow = document.getElementById('sum-message-row') as HTMLElement;
+    const msgEl = document.getElementById('sum-message') as HTMLElement;
+    if (data.message?.trim()) {
+      msgEl.textContent = data.message;
+      msgRow.classList.remove('hidden');
+    } else {
+      msgRow.classList.add('hidden');
+    }
+
+    // Show success, hide form
+    form.classList.add('hidden');
+    successEl.classList.remove('hidden');
+    successEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  // Reset back to form
+  resetBtn?.addEventListener('click', () => {
     form.reset();
-    // Reset custom selects
     form.querySelectorAll('.select-value').forEach((v) => {
       v.textContent = '선택해주세요';
       v.classList.add('text-muted/50');
       v.classList.remove('text-white');
     });
+    form.querySelectorAll('input[type="hidden"]').forEach((input) => {
+      (input as HTMLInputElement).value = '';
+    });
+    successEl.classList.add('hidden');
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 </script>

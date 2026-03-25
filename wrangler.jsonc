@@ -1,0 +1,11 @@
+{
+  "name": "workfolio",
+  "compatibility_date": "2024-12-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "workfolio-db",
+      "database_id": "070de128-ce30-40d1-9ba2-bc00e08cc073"
+    }
+  ]
+}

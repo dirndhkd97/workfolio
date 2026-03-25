@@ -1,0 +1,248 @@
+---
+import '../styles/global.css';
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      rel="stylesheet"
+    />
+    <title>Admin | Workfolio</title>
+  </head>
+  <body>
+    <!-- 로그인 화면 -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center px-6">
+      <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+          <h1 class="text-xl font-bold text-white">
+            <span class="text-accent-light">W</span>orkfolio Admin
+          </h1>
+          <p class="mt-2 text-sm text-muted">관리자 비밀번호를 입력하세요.</p>
+        </div>
+        <form id="login-form" class="space-y-4">
+          <input
+            type="password"
+            id="admin-password"
+            placeholder="비밀번호"
+            required
+            class="w-full rounded-lg border border-surface-border bg-surface-light/30 px-4 py-3 text-sm text-white placeholder-muted/50 focus:border-accent focus:ring-1 focus:ring-accent outline-none"
+          />
+          <button
+            type="submit"
+            class="w-full rounded-lg bg-accent py-3 text-sm font-semibold text-white hover:bg-accent-light transition-all"
+          >
+            로그인
+          </button>
+          <p id="login-error" class="hidden text-sm text-red-400 text-center">비밀번호가 틀렸습니다.</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- 관리자 대시보드 -->
+    <div id="admin-dashboard" class="hidden min-h-screen">
+      <!-- Header -->
+      <header class="border-b border-surface-border">
+        <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+          <h1 class="text-lg font-bold text-white">
+            <span class="text-accent-light">W</span>orkfolio
+            <span class="text-muted font-normal text-sm ml-2">Admin</span>
+          </h1>
+          <div class="flex items-center gap-4">
+            <button id="refresh-btn" class="text-sm text-muted hover:text-white transition-colors flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              새로고침
+            </button>
+            <button id="logout-btn" class="text-sm text-muted hover:text-red-400 transition-colors">
+              로그아웃
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Stats -->
+      <div class="mx-auto max-w-7xl px-6 py-8">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          <div class="rounded-xl border border-surface-border bg-surface-light/20 p-5">
+            <p class="text-xs text-muted mb-1">전체</p>
+            <p id="stat-total" class="text-2xl font-bold text-white">-</p>
+          </div>
+          <div class="rounded-xl border border-surface-border bg-surface-light/20 p-5">
+            <p class="text-xs text-muted mb-1">신규</p>
+            <p id="stat-new" class="text-2xl font-bold text-accent-light">-</p>
+          </div>
+          <div class="rounded-xl border border-surface-border bg-surface-light/20 p-5">
+            <p class="text-xs text-muted mb-1">진행중</p>
+            <p id="stat-progress" class="text-2xl font-bold text-yellow-400">-</p>
+          </div>
+          <div class="rounded-xl border border-surface-border bg-surface-light/20 p-5">
+            <p class="text-xs text-muted mb-1">완료</p>
+            <p id="stat-done" class="text-2xl font-bold text-green-400">-</p>
+          </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="flex items-center gap-3 mb-6">
+          <button data-filter="all" class="filter-btn active rounded-md px-3 py-1.5 text-xs font-medium transition-all">전체</button>
+          <button data-filter="new" class="filter-btn rounded-md px-3 py-1.5 text-xs font-medium transition-all">신규</button>
+          <button data-filter="in_progress" class="filter-btn rounded-md px-3 py-1.5 text-xs font-medium transition-all">진행중</button>
+          <button data-filter="done" class="filter-btn rounded-md px-3 py-1.5 text-xs font-medium transition-all">완료</button>
+        </div>
+
+        <!-- Contact List -->
+        <div id="contact-list" class="space-y-4">
+          <p class="text-muted text-sm text-center py-12">로딩 중...</p>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .filter-btn { color: #94a3b8; }
+      .filter-btn.active { background: #6366f1; color: white; }
+      .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+      .status-new { background: rgba(99,102,241,0.15); color: #818cf8; }
+      .status-in_progress { background: rgba(250,204,21,0.15); color: #facc15; }
+      .status-done { background: rgba(34,197,94,0.15); color: #22c55e; }
+    </style>
+
+    <script is:inline>
+      const typeLabels = {
+        landing: '랜딩페이지',
+        corporate: '기업 홈페이지',
+        shopping: '쇼핑몰',
+        app: '모바일 앱',
+        vibe: '바이브코딩 유지보수',
+        other: '기타',
+      };
+      const budgetLabels = {
+        '50': '50만원 이하',
+        '50-100': '50~100만원',
+        '100-300': '100~300만원',
+        '300-500': '300~500만원',
+        '500+': '500만원 이상',
+        consult: '상담 후 결정',
+      };
+      const statusLabels = { new: '신규', in_progress: '진행중', done: '완료' };
+
+      let password = '';
+      let contacts = [];
+      let currentFilter = 'all';
+
+      // Login
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        password = document.getElementById('admin-password').value;
+        const res = await fetch(`/api/contacts?password=${encodeURIComponent(password)}`);
+        if (res.ok) {
+          document.getElementById('login-screen').classList.add('hidden');
+          document.getElementById('admin-dashboard').classList.remove('hidden');
+          const json = await res.json();
+          contacts = json.data;
+          render();
+        } else {
+          document.getElementById('login-error').classList.remove('hidden');
+        }
+      });
+
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        password = '';
+        contacts = [];
+        document.getElementById('admin-dashboard').classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('admin-password').value = '';
+        document.getElementById('login-error').classList.add('hidden');
+      });
+
+      // Refresh
+      document.getElementById('refresh-btn').addEventListener('click', loadContacts);
+
+      // Filters
+      document.querySelectorAll('.filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentFilter = btn.dataset.filter;
+          render();
+        });
+      });
+
+      async function loadContacts() {
+        const res = await fetch(`/api/contacts?password=${encodeURIComponent(password)}`);
+        if (res.ok) {
+          const json = await res.json();
+          contacts = json.data;
+          render();
+        }
+      }
+
+      async function updateStatus(id, status) {
+        await fetch(`/api/contacts?password=${encodeURIComponent(password)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, status }),
+        });
+        await loadContacts();
+      }
+
+      function render() {
+        const filtered = currentFilter === 'all'
+          ? contacts
+          : contacts.filter((c) => c.status === currentFilter);
+
+        // Stats
+        document.getElementById('stat-total').textContent = contacts.length;
+        document.getElementById('stat-new').textContent = contacts.filter((c) => c.status === 'new').length;
+        document.getElementById('stat-progress').textContent = contacts.filter((c) => c.status === 'in_progress').length;
+        document.getElementById('stat-done').textContent = contacts.filter((c) => c.status === 'done').length;
+
+        const list = document.getElementById('contact-list');
+
+        if (filtered.length === 0) {
+          list.innerHTML = '<p class="text-muted text-sm text-center py-12">상담 신청 내역이 없습니다.</p>';
+          return;
+        }
+
+        list.innerHTML = filtered.map((c) => `
+          <div class="rounded-xl border border-surface-border bg-surface-light/20 p-6 hover:border-accent/20 transition-all">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+              <div class="flex items-center gap-3">
+                <span class="status-badge status-${c.status}">${statusLabels[c.status] || c.status}</span>
+                <h3 class="text-base font-bold text-white">${esc(c.name)}</h3>
+                <span class="text-xs text-muted">${c.created_at || ''}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <select onchange="updateStatus(${c.id}, this.value)" class="rounded-md border border-surface-border bg-surface/50 px-2 py-1 text-xs text-white outline-none">
+                  <option value="new" ${c.status === 'new' ? 'selected' : ''}>신규</option>
+                  <option value="in_progress" ${c.status === 'in_progress' ? 'selected' : ''}>진행중</option>
+                  <option value="done" ${c.status === 'done' ? 'selected' : ''}>완료</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid sm:grid-cols-2 gap-3 text-sm">
+              <div class="flex gap-2"><span class="text-muted/60 w-16 shrink-0">연락처</span><a href="tel:${esc(c.phone)}" class="text-accent-light hover:underline">${esc(c.phone)}</a></div>
+              <div class="flex gap-2"><span class="text-muted/60 w-16 shrink-0">이메일</span><a href="mailto:${esc(c.email)}" class="text-accent-light hover:underline">${esc(c.email)}</a></div>
+              <div class="flex gap-2"><span class="text-muted/60 w-16 shrink-0">유형</span><span class="text-white">${typeLabels[c.type] || c.type || '-'}</span></div>
+              <div class="flex gap-2"><span class="text-muted/60 w-16 shrink-0">예산</span><span class="text-white">${budgetLabels[c.budget] || c.budget || '-'}</span></div>
+            </div>
+            ${c.message ? `<div class="mt-4 rounded-lg bg-surface/50 border border-surface-border p-4 text-sm text-muted">${esc(c.message)}</div>` : ''}
+          </div>
+        `).join('');
+      }
+
+      function esc(str) {
+        if (!str) return '';
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+      }
+    </script>
+  </body>
+</html>
