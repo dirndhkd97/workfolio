@@ -1,11 +1,13 @@
-import type { APIRoute } from 'astro';
+interface Env {
+  DB: D1Database;
+  ADMIN_PASSWORD: string;
+}
 
-export const GET: APIRoute = async ({ request, locals }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const password = url.searchParams.get('password');
-  const adminPassword = locals.runtime.env.ADMIN_PASSWORD;
 
-  if (!adminPassword || password !== adminPassword) {
+  if (!env.ADMIN_PASSWORD || password !== env.ADMIN_PASSWORD) {
     return new Response(JSON.stringify({ error: '인증 실패' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -13,8 +15,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 
   try {
-    const db = locals.runtime.env.DB;
-    const { results } = await db
+    const { results } = await env.DB
       .prepare('SELECT * FROM contacts ORDER BY created_at DESC')
       .all();
 
@@ -31,12 +32,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
   }
 };
 
-export const PATCH: APIRoute = async ({ request, locals }) => {
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
   const password = url.searchParams.get('password');
-  const adminPassword = locals.runtime.env.ADMIN_PASSWORD;
 
-  if (!adminPassword || password !== adminPassword) {
+  if (!env.ADMIN_PASSWORD || password !== env.ADMIN_PASSWORD) {
     return new Response(JSON.stringify({ error: '인증 실패' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -44,9 +44,8 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
   }
 
   try {
-    const { id, status } = await request.json();
-    const db = locals.runtime.env.DB;
-    await db.prepare('UPDATE contacts SET status = ? WHERE id = ?').bind(status, id).run();
+    const { id, status } = await request.json() as { id: number; status: string };
+    await env.DB.prepare('UPDATE contacts SET status = ? WHERE id = ?').bind(status, id).run();
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

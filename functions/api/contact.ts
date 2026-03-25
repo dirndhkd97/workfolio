@@ -1,8 +1,10 @@
-import type { APIRoute } from 'astro';
+interface Env {
+  DB: D1Database;
+}
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    const data = await request.json();
+    const data = await request.json() as Record<string, string>;
     const { name, phone, email, type, budget, message } = data;
 
     if (!name || !phone || !email) {
@@ -12,8 +14,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    const db = locals.runtime.env.DB;
-    await db
+    await env.DB
       .prepare(
         'INSERT INTO contacts (name, phone, email, type, budget, message) VALUES (?, ?, ?, ?, ?, ?)'
       )
