@@ -1,0 +1,83 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Indigo glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="40" result="blur" />
+      <feColorMatrix in="blur" type="matrix"
+        values="0.5 0 0 0 0.3
+                0 0.4 0 0 0.2
+                0 0 1 0 0.6
+                0 0 0 0.6 0" result="coloredBlur" />
+      <feMerge>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <!-- Subtle radial gradient for background depth -->
+    <radialGradient id="bgGlow" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.4" />
+      <stop offset="60%" stop-color="#0a0a0f" stop-opacity="0" />
+    </radialGradient>
+    <!-- Top edge gradient line -->
+    <linearGradient id="topLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0" />
+      <stop offset="30%" stop-color="#818cf8" stop-opacity="0.6" />
+      <stop offset="70%" stop-color="#818cf8" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="1200" height="630" fill="#0a0a0f" />
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.06" stroke="#818cf8" stroke-width="0.5">
+    <line x1="0" y1="0" x2="0" y2="630" /><line x1="60" y1="0" x2="60" y2="630" />
+    <line x1="120" y1="0" x2="120" y2="630" /><line x1="180" y1="0" x2="180" y2="630" />
+    <line x1="240" y1="0" x2="240" y2="630" /><line x1="300" y1="0" x2="300" y2="630" />
+    <line x1="360" y1="0" x2="360" y2="630" /><line x1="420" y1="0" x2="420" y2="630" />
+    <line x1="480" y1="0" x2="480" y2="630" /><line x1="540" y1="0" x2="540" y2="630" />
+    <line x1="600" y1="0" x2="600" y2="630" /><line x1="660" y1="0" x2="660" y2="630" />
+    <line x1="720" y1="0" x2="720" y2="630" /><line x1="780" y1="0" x2="780" y2="630" />
+    <line x1="840" y1="0" x2="840" y2="630" /><line x1="900" y1="0" x2="900" y2="630" />
+    <line x1="960" y1="0" x2="960" y2="630" /><line x1="1020" y1="0" x2="1020" y2="630" />
+    <line x1="1080" y1="0" x2="1080" y2="630" /><line x1="1140" y1="0" x2="1140" y2="630" />
+    <line x1="1200" y1="0" x2="1200" y2="630" />
+    <line x1="0" y1="0" x2="1200" y2="0" /><line x1="0" y1="60" x2="1200" y2="60" />
+    <line x1="0" y1="120" x2="1200" y2="120" /><line x1="0" y1="180" x2="1200" y2="180" />
+    <line x1="0" y1="240" x2="1200" y2="240" /><line x1="0" y1="300" x2="1200" y2="300" />
+    <line x1="0" y1="360" x2="1200" y2="360" /><line x1="0" y1="420" x2="1200" y2="420" />
+    <line x1="0" y1="480" x2="1200" y2="480" /><line x1="0" y1="540" x2="1200" y2="540" />
+    <line x1="0" y1="600" x2="1200" y2="600" /><line x1="0" y1="630" x2="1200" y2="630" />
+  </g>
+
+  <!-- Radial glow behind text -->
+  <rect width="1200" height="630" fill="url(#bgGlow)" />
+
+  <!-- Indigo glow orb -->
+  <ellipse cx="600" cy="280" rx="260" ry="140" fill="#818cf8" opacity="0.08" />
+  <ellipse cx="600" cy="280" rx="160" ry="80" fill="#818cf8" opacity="0.06" />
+
+  <!-- Top accent line -->
+  <rect x="0" y="0" width="1200" height="2" fill="url(#topLine)" />
+
+  <!-- Main title: "Workfolio" with W in accent color -->
+  <g filter="url(#glow)">
+    <text x="600" y="290" text-anchor="middle" font-family="'SF Pro Display', 'Inter', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="700" letter-spacing="-2">
+      <tspan fill="#818cf8">W</tspan><tspan fill="#ffffff">orkfolio</tspan>
+    </text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="600" y="355" text-anchor="middle" font-family="'Pretendard Variable', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" font-size="30" font-weight="400" fill="#94a3b8" letter-spacing="1">
+    웹과 앱, 제작부터 관리까지
+  </text>
+
+  <!-- Decorative separator -->
+  <line x1="540" y1="390" x2="660" y2="390" stroke="#818cf8" stroke-width="1.5" opacity="0.4" />
+
+  <!-- Bottom URL -->
+  <text x="600" y="560" text-anchor="middle" font-family="'SF Pro Display', 'Inter', 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="400" fill="#64748b" letter-spacing="2">
+    workfolio.life
+  </text>
+</svg>
