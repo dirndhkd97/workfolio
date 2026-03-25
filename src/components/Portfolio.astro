@@ -1,28 +1,48 @@
 ---
 const projects = [
   {
-    title: '카페 브랜드 사이트',
-    category: '랜딩페이지',
-    gradient: 'from-violet-500/20 to-indigo-500/20',
-    tags: ['디자인', '반응형', 'SEO'],
+    title: 'WODMate',
+    subtitle: '크로스핏 운동 기록 앱',
+    category: '모바일 앱 + 웹',
+    gradient: 'from-teal-500/20 to-cyan-500/20',
+    accentColor: 'text-teal-400',
+    description: '크로스핏 운동(WOD)을 기록하고 트래킹하는 피트니스 앱. iOS/Android 동시 지원.',
+    tags: ['React Native', 'Expo', 'Supabase', 'iOS', 'Android'],
+    link: 'https://wodmate.heewon.app',
+    features: ['운동 기록 & 통계', '다크모드 UI', '실시간 동기화'],
   },
   {
-    title: '스타트업 홈페이지',
-    category: '기업 홈페이지',
-    gradient: 'from-cyan-500/20 to-blue-500/20',
-    tags: ['기업', '다국어', '애니메이션'],
-  },
-  {
-    title: '온라인 쇼핑몰',
-    category: '쇼핑몰',
+    title: 'MyNurse',
+    subtitle: '간호사를 위한 업무 도우미',
+    category: '모바일 앱 + 웹',
     gradient: 'from-rose-500/20 to-pink-500/20',
-    tags: ['결제 연동', '재고 관리', '반응형'],
+    accentColor: 'text-rose-400',
+    description: '간호사의 업무 효율을 높여주는 똑똑한 도우미 앱. 다국어 지원.',
+    tags: ['Astro', 'Mobile App', '다국어', 'Healthcare'],
+    link: 'https://mynurse.heewon.app',
+    features: ['업무 관리', '고객 지원 시스템', '계정 관리'],
   },
   {
-    title: '헬스케어 앱',
-    category: '모바일 앱',
-    gradient: 'from-emerald-500/20 to-teal-500/20',
-    tags: ['iOS', 'Android', 'Push 알림'],
+    title: '온도 (ONDO)',
+    subtitle: '감성 카페 브랜드 사이트',
+    category: '랜딩페이지',
+    gradient: 'from-amber-500/20 to-orange-500/20',
+    accentColor: 'text-amber-400',
+    description: '따뜻한 감성의 카페 브랜드 사이트. 메뉴, 갤러리, 위치 안내까지 원페이지로 구성.',
+    tags: ['Astro', 'Tailwind CSS', '반응형', '원페이지'],
+    link: '/demo/cafe',
+    features: ['탭 메뉴 시스템', '갤러리 레이아웃', '매장 안내'],
+  },
+  {
+    title: 'Workfolio',
+    subtitle: '외주 개발업체 사이트',
+    category: '기업 홈페이지',
+    gradient: 'from-indigo-500/20 to-violet-500/20',
+    accentColor: 'text-indigo-400',
+    description: '지금 보고 계신 이 사이트. 제작부터 관리까지, Workfolio의 서비스를 소개합니다.',
+    tags: ['Astro', 'Cloudflare Pages', 'D1', 'Tailwind CSS'],
+    link: 'https://workfolio.life',
+    features: ['구독형 요금제', '상담 폼 & 관리자', 'SEO 최적화'],
   },
 ];
 ---
@@ -35,22 +55,53 @@ const projects = [
         이런 프로젝트를 만듭니다
       </h2>
       <p class="mt-4 text-lg text-muted max-w-2xl mx-auto">
-        다양한 업종의 경험을 바탕으로 최적의 솔루션을 제공합니다.
+        실제 운영 중인 서비스들입니다. 클릭하면 확인할 수 있습니다.
       </p>
     </div>
 
     <div class="grid sm:grid-cols-2 gap-6">
       {projects.map((project) => (
-        <div class="group rounded-xl border border-surface-border bg-surface-light/20 overflow-hidden hover:border-accent/20 transition-all duration-300">
-          <div class={`aspect-[16/10] bg-gradient-to-br ${project.gradient} flex items-center justify-center`}>
-            <div class="w-3/4 h-3/4 rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-center">
-              <span class="text-white/30 text-sm font-mono">preview</span>
+        <a
+          href={project.link}
+          target={project.link.startsWith('http') ? '_blank' : '_self'}
+          rel={project.link.startsWith('http') ? 'noopener noreferrer' : undefined}
+          class="group block rounded-xl border border-surface-border bg-surface-light/20 overflow-hidden hover:border-accent/30 hover:shadow-xl hover:shadow-accent-glow/10 transition-all duration-300"
+        >
+          <!-- Preview Area -->
+          <div class={`relative aspect-[16/9] bg-gradient-to-br ${project.gradient} flex items-center justify-center overflow-hidden`}>
+            <div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+            <div class="relative text-center px-6">
+              <p class={`text-3xl font-extrabold ${project.accentColor} mb-1`}>{project.title}</p>
+              <p class="text-sm text-white/50">{project.subtitle}</p>
+            </div>
+            <!-- Visit indicator -->
+            <div class="absolute top-4 right-4 flex items-center gap-1.5 rounded-md bg-black/30 backdrop-blur-sm px-3 py-1.5 text-xs text-white/60 opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+              </svg>
+              방문하기
             </div>
           </div>
+
+          <!-- Info -->
           <div class="p-6">
-            <span class="text-xs font-medium text-accent-light font-mono">{project.category}</span>
-            <h3 class="mt-2 text-lg font-bold text-white">{project.title}</h3>
-            <div class="mt-3 flex flex-wrap gap-2">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xs font-medium text-accent-light font-mono">{project.category}</span>
+            </div>
+            <p class="text-sm text-muted leading-relaxed mb-4">{project.description}</p>
+
+            <!-- Features -->
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mb-4">
+              {project.features.map((f) => (
+                <span class="flex items-center gap-1.5 text-xs text-muted/70">
+                  <span class="w-1 h-1 rounded-full bg-accent-light/50"></span>
+                  {f}
+                </span>
+              ))}
+            </div>
+
+            <!-- Tags -->
+            <div class="flex flex-wrap gap-2">
               {project.tags.map((tag) => (
                 <span class="rounded-md border border-surface-border bg-surface-light/30 px-2.5 py-0.5 text-xs text-muted">
                   {tag}
@@ -58,7 +109,7 @@ const projects = [
               ))}
             </div>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   </div>
