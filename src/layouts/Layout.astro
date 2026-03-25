@@ -4,11 +4,13 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  canonical?: string;
 }
 
 const {
-  title = 'Workfolio | 웹과 앱, 제작부터 관리까지',
-  description = '웹사이트, 앱 제작부터 바이브코딩 유지보수까지. 제작비 50만원부터, 월 구독 관리 서비스.',
+  title = 'Workfolio | 웹사이트 제작 · 앱 개발 · 외주 개발 · 유지보수',
+  description = '웹사이트, 앱 제작 50만원부터. 바이브코딩 유지보수, 구독형 관리 서비스까지. 합리적인 외주 개발 파트너 Workfolio.',
+  canonical,
 } = Astro.props;
 ---
 
@@ -23,12 +25,43 @@ const {
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://workfolio.life" />
+    <meta property="og:image" content="https://workfolio.life/og-image.png" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta name="keywords" content="웹사이트 제작, 홈페이지 제작, 외주 개발, 앱 개발, 웹사이트 유지보수, 바이브코딩, 랜딩페이지 제작, 사이트 관리, 홈페이지 제작 비용" />
+    <link rel="canonical" href={canonical || Astro.url.href} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content="https://workfolio.life/og-image.png" />
+    <meta name="naver-site-verification" content="" />
+    <meta name="google-site-verification" content="" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
       rel="stylesheet"
     />
     <title>{title}</title>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ProfessionalService",
+      "name": "Workfolio",
+      "alternateName": "buildWon",
+      "url": "https://workfolio.life",
+      "description": "웹사이트, 앱 제작부터 바이브코딩 유지보수, 구독형 관리 서비스까지. 합리적인 외주 개발 파트너.",
+      "priceRange": "₩500,000~",
+      "email": "dirndhkd97@gmail.com",
+      "areaServed": "KR",
+      "serviceType": ["웹사이트 제작", "앱 개발", "바이브코딩 유지보수", "웹사이트 유지보수"],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "서비스",
+        "itemListElement": [
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "웹사이트 제작", "description": "랜딩페이지, 기업 홈페이지, 쇼핑몰 제작"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "앱 개발", "description": "iOS/Android 크로스 플랫폼 앱 개발"}},
+          {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "구독형 관리", "description": "월 3만원부터 호스팅, 도메인, 콘텐츠 관리"}}
+        ]
+      }
+    })} />
   </head>
   <body>
     <slot />
