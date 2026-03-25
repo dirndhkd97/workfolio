@@ -1,0 +1,72 @@
+<section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+  <!-- Grid background -->
+  <div class="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]"></div>
+
+  <!-- Glow effects -->
+  <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-accent/8 rounded-full blur-[120px] pointer-events-none"></div>
+  <div class="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-indigo-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+
+  <div class="relative mx-auto max-w-7xl px-6 py-32 text-center">
+    <div class="animate-fade-up">
+      <span class="inline-flex items-center gap-2 rounded-full border border-surface-border bg-surface-light/50 px-4 py-1.5 text-sm text-muted mb-8">
+        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        제작비 50만원부터 · 협의 가능
+      </span>
+    </div>
+
+    <h1 class="animate-fade-up text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight"
+        style="animation-delay: 0.1s">
+      <span class="text-white">웹과 앱,</span><br />
+      <span class="bg-gradient-to-r from-accent-light to-indigo-400 bg-clip-text text-transparent">제작부터 관리까지</span>
+    </h1>
+
+    <p class="animate-fade-up mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-muted leading-relaxed"
+       style="animation-delay: 0.2s">
+      웹사이트 · 모바일 앱 · 바이브코딩 유지보수<br class="hidden sm:block" />
+      만들고 끝이 아닌, 함께 성장하는 기술 파트너.
+    </p>
+
+    <div class="animate-fade-up mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+         style="animation-delay: 0.3s">
+      <a
+        href="#contact"
+        class="w-full sm:w-auto rounded-lg bg-accent px-8 py-4 text-base font-semibold text-white shadow-lg shadow-accent-glow hover:bg-accent-light hover:-translate-y-0.5 transition-all"
+      >
+        무료 상담 신청
+      </a>
+      <a
+        href="#services"
+        class="w-full sm:w-auto rounded-lg border border-surface-border px-8 py-4 text-base font-medium text-muted hover:text-white hover:border-accent/50 transition-all"
+      >
+        서비스 알아보기
+      </a>
+    </div>
+
+    <!-- Tech tags -->
+    <div class="animate-fade-up mt-20 flex flex-wrap items-center justify-center gap-3"
+         style="animation-delay: 0.4s">
+      {['React', 'Next.js', 'Flutter', 'Astro', 'Cloudflare', 'Supabase'].map((tech) => (
+        <span class="rounded-md border border-surface-border bg-surface-light/30 px-3 py-1 text-xs text-muted font-mono">
+          {tech}
+        </span>
+      ))}
+    </div>
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+    <span class="text-xs text-muted/50 tracking-widest uppercase">Scroll</span>
+    <div class="w-px h-8 bg-gradient-to-b from-muted/50 to-transparent animate-pulse"></div>
+  </div>
+</section>
+
+<style>
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    opacity: 0;
+    animation: fade-up 0.8s ease-out forwards;
+  }
+</style>

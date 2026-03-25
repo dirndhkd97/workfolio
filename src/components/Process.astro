@@ -1,0 +1,37 @@
+---
+const steps = [
+  { num: '01', title: '상담', desc: '프로젝트 목표와 요구사항을 파악합니다.' },
+  { num: '02', title: '기획', desc: '사이트 구조와 콘텐츠를 설계합니다.' },
+  { num: '03', title: '디자인', desc: '브랜드에 맞는 UI/UX를 디자인합니다.' },
+  { num: '04', title: '개발', desc: '최신 기술 스택으로 구현합니다.' },
+  { num: '05', title: '런칭', desc: '테스트 후 도메인 연결과 함께 오픈합니다.' },
+  { num: '06', title: '관리', desc: '구독 서비스로 지속적으로 관리합니다.' },
+];
+---
+
+<section id="process" class="py-24 sm:py-32 border-t border-surface-border">
+  <div class="mx-auto max-w-7xl px-6">
+    <div class="text-center mb-16">
+      <span class="text-sm font-medium text-accent-light tracking-wider font-mono">// process</span>
+      <h2 class="mt-4 text-3xl sm:text-4xl font-bold text-white">
+        이렇게 진행됩니다
+      </h2>
+      <p class="mt-4 text-lg text-muted max-w-2xl mx-auto">
+        상담부터 런칭, 그리고 지속적인 관리까지.
+      </p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {steps.map((step) => (
+        <div class="relative rounded-xl border border-surface-border bg-surface-light/20 p-8 hover:border-accent/20 transition-all duration-300">
+          <span class="text-4xl font-black text-accent/10 font-mono absolute top-6 right-6">{step.num}</span>
+          <div class="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
+            <span class="text-sm font-bold text-accent-light font-mono">{step.num}</span>
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">{step.title}</h3>
+          <p class="text-muted text-sm leading-relaxed">{step.desc}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,82 @@
+---
+const navItems = [
+  { label: '서비스', href: '#services' },
+  { label: '프로세스', href: '#process' },
+  { label: '요금제', href: '#pricing' },
+  { label: '포트폴리오', href: '#portfolio' },
+  { label: 'FAQ', href: '#faq' },
+];
+---
+
+<header id="header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-transparent">
+  <nav class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+    <a href="/" class="text-xl font-bold tracking-tight">
+      <span class="text-accent-light">W</span><span class="text-white">orkfolio</span>
+    </a>
+
+    <ul class="hidden md:flex items-center gap-8">
+      {navItems.map((item) => (
+        <li>
+          <a
+            href={item.href}
+            class="text-sm text-muted hover:text-white transition-colors"
+          >
+            {item.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <a
+      href="#contact"
+      class="hidden md:inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-light transition-colors"
+    >
+      상담 신청
+    </a>
+
+    <button
+      id="mobile-menu-btn"
+      class="md:hidden flex flex-col gap-1.5 p-2"
+      aria-label="메뉴 열기"
+    >
+      <span class="block w-6 h-0.5 bg-white transition-all"></span>
+      <span class="block w-6 h-0.5 bg-white transition-all"></span>
+      <span class="block w-4 h-0.5 bg-white transition-all"></span>
+    </button>
+  </nav>
+
+  <div id="mobile-menu" class="hidden md:hidden bg-surface border-t border-surface-border">
+    <ul class="flex flex-col px-6 py-4 gap-4">
+      {navItems.map((item) => (
+        <li>
+          <a href={item.href} class="block text-base text-muted hover:text-white">
+            {item.label}
+          </a>
+        </li>
+      ))}
+      <li>
+        <a href="#contact" class="block text-center rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white">
+          상담 신청
+        </a>
+      </li>
+    </ul>
+  </div>
+</header>
+
+<script>
+  const header = document.getElementById('header');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) {
+      header?.classList.add('bg-primary/80', 'backdrop-blur-xl', 'border-surface-border');
+    } else {
+      header?.classList.remove('bg-primary/80', 'backdrop-blur-xl', 'border-surface-border');
+    }
+  });
+
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  btn?.addEventListener('click', () => menu?.classList.toggle('hidden'));
+  menu?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => menu?.classList.add('hidden'));
+  });
+</script>

@@ -1,0 +1,60 @@
+---
+const faqs = [
+  {
+    q: '제작 기간은 얼마나 걸리나요?',
+    a: '랜딩페이지 기준 약 1~2주, 기업 홈페이지는 2~4주, 앱은 4~8주 정도 소요됩니다. 프로젝트 규모에 따라 달라집니다.',
+  },
+  {
+    q: '50만원으로 어떤 사이트까지 가능한가요?',
+    a: '심플한 소개 랜딩페이지가 가능합니다. 기능이 추가될수록 견적이 올라가지만, 예산에 맞춰 유연하게 협의 가능합니다. 부담 없이 상담해주세요.',
+  },
+  {
+    q: '바이브코딩으로 만든 프로젝트도 맡길 수 있나요?',
+    a: 'Cursor, Bolt, v0 등 AI 도구로 만든 프로젝트도 가능합니다. 코드 분석 후 안정화, 버그 수정, 기능 추가, 배포 환경 세팅까지 지원합니다.',
+  },
+  {
+    q: '구독을 꼭 해야 하나요?',
+    a: '필수는 아닙니다. 다만 보안 업데이트, 콘텐츠 수정, 장애 대응 등 직접 관리가 어려운 경우 구독 서비스를 권장합니다. 도메인과 호스팅 비용도 포함입니다.',
+  },
+  {
+    q: '앱도 웹과 같은 가격인가요?',
+    a: '앱은 200만원부터 시작합니다. iOS/Android를 하나의 코드로 개발하는 크로스 플랫폼 방식으로 비용을 절감합니다.',
+  },
+  {
+    q: '이미 사이트가 있는데 관리만 맡길 수 있나요?',
+    a: '가능합니다. 기존 사이트 점검 후 관리 가능 여부와 적합한 플랜을 안내해 드립니다.',
+  },
+];
+---
+
+<section id="faq" class="py-24 sm:py-32 border-t border-surface-border">
+  <div class="mx-auto max-w-3xl px-6">
+    <div class="text-center mb-16">
+      <span class="text-sm font-medium text-accent-light tracking-wider font-mono">// faq</span>
+      <h2 class="mt-4 text-3xl sm:text-4xl font-bold text-white">
+        자주 묻는 질문
+      </h2>
+    </div>
+
+    <div class="space-y-3">
+      {faqs.map((faq) => (
+        <details class="group rounded-xl border border-surface-border bg-surface-light/20 hover:border-accent/20 transition-colors">
+          <summary class="flex items-center justify-between cursor-pointer p-6 text-left">
+            <span class="font-medium text-white pr-4">{faq.q}</span>
+            <svg
+              class="w-5 h-5 shrink-0 text-muted group-open:rotate-180 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </summary>
+          <div class="px-6 pb-6 text-muted text-sm leading-relaxed">
+            {faq.a}
+          </div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>

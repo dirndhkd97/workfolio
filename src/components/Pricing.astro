@@ -1,0 +1,350 @@
+---
+const webPlans = [
+  {
+    name: 'Lite',
+    price: '3',
+    description: '기본 유지만 필요한 분',
+    features: [
+      { text: '호스팅 & 도메인 관리', included: true },
+      { text: 'SSL / 보안 업데이트', included: true },
+      { text: '콘텐츠 수정 월 1회', included: true },
+      { text: '장애 대응 (48시간)', included: true },
+      { text: 'SEO 관리', included: false },
+      { text: '월간 리포트', included: false },
+      { text: '기능 추가/변경', included: false },
+    ],
+    highlighted: false,
+  },
+  {
+    name: 'Standard',
+    price: '7',
+    description: '가장 인기 있는 플랜',
+    features: [
+      { text: '호스팅 & 도메인 관리', included: true },
+      { text: 'SSL / 보안 업데이트', included: true },
+      { text: '콘텐츠 수정 월 4회', included: true },
+      { text: '장애 대응 (24시간)', included: true },
+      { text: 'SEO 기본 관리', included: true },
+      { text: '월간 리포트', included: false },
+      { text: '소규모 기능 변경', included: true },
+    ],
+    highlighted: true,
+  },
+  {
+    name: 'Pro',
+    price: '15',
+    description: '적극적인 관리가 필요한 분',
+    features: [
+      { text: '호스팅 & 도메인 관리', included: true },
+      { text: 'SSL / 보안 업데이트', included: true },
+      { text: '콘텐츠 수정 월 8회', included: true },
+      { text: '장애 대응 (4시간)', included: true },
+      { text: 'SEO 관리 & 최적화', included: true },
+      { text: '월간 리포트', included: true },
+      { text: '중규모 기능 추가/변경', included: true },
+    ],
+    highlighted: false,
+  },
+];
+
+const appPlans = [
+  {
+    name: 'App Basic',
+    price: '10',
+    description: '최소한의 앱 유지 관리',
+    features: [
+      { text: '서버 & 인프라 관리', included: true },
+      { text: '스토어 관리 (iOS/Android)', included: true },
+      { text: 'OS 업데이트 대응', included: true },
+      { text: '버그 수정 월 1건', included: true },
+      { text: '장애 대응 (48시간)', included: true },
+      { text: '크래시 모니터링', included: false },
+      { text: 'Push 알림 관리', included: false },
+      { text: '기능 추가/변경', included: false },
+    ],
+    highlighted: false,
+  },
+  {
+    name: 'App Standard',
+    price: '20',
+    description: '안정적인 앱 운영',
+    features: [
+      { text: '서버 & 인프라 관리', included: true },
+      { text: '스토어 관리 (iOS/Android)', included: true },
+      { text: 'OS 업데이트 대응', included: true },
+      { text: '버그 수정 월 4건', included: true },
+      { text: '장애 대응 (24시간)', included: true },
+      { text: '크래시 모니터링', included: true },
+      { text: 'Push 알림 관리', included: true },
+      { text: '소규모 기능 변경', included: true },
+    ],
+    highlighted: true,
+  },
+  {
+    name: 'App Pro',
+    price: '35',
+    description: '풀 매니지드 앱 관리',
+    features: [
+      { text: '서버 & 인프라 관리', included: true },
+      { text: '스토어 관리 (iOS/Android)', included: true },
+      { text: 'OS 업데이트 대응', included: true },
+      { text: '버그 수정 무제한', included: true },
+      { text: '장애 대응 (4시간)', included: true },
+      { text: '크래시 모니터링', included: true },
+      { text: 'Push 알림 관리', included: true },
+      { text: '중규모 기능 추가/변경', included: true },
+    ],
+    highlighted: false,
+  },
+];
+
+const bundlePlans = [
+  {
+    name: 'Bundle Standard',
+    price: '22',
+    originalPrice: '27',
+    description: '웹 Standard + App Standard',
+    discount: '19%',
+    webFeatures: ['콘텐츠 수정 월 4회', '장애 대응 24시간', 'SEO 기본 관리', '소규모 기능 변경'],
+    appFeatures: ['버그 수정 월 4건', '장애 대응 24시간', '크래시 모니터링', 'Push 알림 관리'],
+    highlighted: true,
+  },
+  {
+    name: 'Bundle Pro',
+    price: '40',
+    originalPrice: '50',
+    description: '웹 Pro + App Pro',
+    discount: '20%',
+    webFeatures: ['콘텐츠 수정 월 8회', '장애 대응 4시간', 'SEO 관리 & 최적화', '중규모 기능 추가/변경'],
+    appFeatures: ['버그 수정 무제한', '장애 대응 4시간', '크래시 모니터링 & 리포트', '중규모 기능 추가/변경'],
+    highlighted: false,
+  },
+];
+---
+
+<section id="pricing" class="py-24 sm:py-32 border-t border-surface-border">
+  <div class="mx-auto max-w-7xl px-6">
+    <div class="text-center mb-16">
+      <span class="text-sm font-medium text-accent-light tracking-wider font-mono">// pricing</span>
+      <h2 class="mt-4 text-3xl sm:text-4xl font-bold text-white">
+        만들고 끝이 아닙니다
+      </h2>
+      <p class="mt-4 text-lg text-muted max-w-2xl mx-auto">
+        제작 후 합리적인 구독료로 지속적인 관리를 받으세요.
+      </p>
+    </div>
+
+    <!-- 제작비 안내 -->
+    <div class="mb-16 grid sm:grid-cols-2 gap-6">
+      <div class="rounded-xl border border-surface-border bg-surface-light/30 p-8 text-center">
+        <p class="text-sm text-accent-light font-mono mb-2">웹사이트 제작</p>
+        <p class="text-4xl font-extrabold text-white">50<span class="text-xl text-muted">만원~</span></p>
+        <p class="mt-2 text-muted text-sm">랜딩페이지 · 홈페이지 · 쇼핑몰</p>
+      </div>
+      <div class="rounded-xl border border-surface-border bg-surface-light/30 p-8 text-center">
+        <p class="text-sm text-accent-light font-mono mb-2">앱 개발</p>
+        <p class="text-4xl font-extrabold text-white">200<span class="text-xl text-muted">만원~</span></p>
+        <p class="mt-2 text-muted text-sm">iOS · Android 크로스 플랫폼</p>
+      </div>
+    </div>
+
+    <p class="text-center text-sm text-muted mb-12">
+      * 모든 제작비는 프로젝트 규모에 따라 <span class="text-accent-light">협의 가능</span>합니다. 부담 없이 상담해주세요.
+    </p>
+
+    <!-- Tab Navigation -->
+    <div class="flex items-center justify-center mb-10">
+      <div class="inline-flex rounded-lg border border-surface-border bg-surface-light/30 p-1">
+        <button data-tab="web" class="pricing-tab active rounded-md px-6 py-2.5 text-sm font-medium transition-all">
+          웹 관리
+        </button>
+        <button data-tab="app" class="pricing-tab rounded-md px-6 py-2.5 text-sm font-medium transition-all">
+          앱 관리
+        </button>
+        <button data-tab="bundle" class="pricing-tab rounded-md px-6 py-2.5 text-sm font-medium transition-all">
+          웹 + 앱 번들
+        </button>
+      </div>
+    </div>
+
+    <!-- Web Plans -->
+    <div id="panel-web" class="pricing-panel">
+      <div class="grid md:grid-cols-3 gap-6">
+        {webPlans.map((plan) => (
+          <div
+            class:list={[
+              'relative rounded-xl p-8 transition-all duration-300',
+              plan.highlighted
+                ? 'border-2 border-accent bg-gradient-to-b from-accent/10 to-surface-light/30 shadow-lg shadow-accent-glow'
+                : 'border border-surface-border bg-surface-light/20 hover:border-accent/20',
+            ]}
+          >
+            {plan.highlighted && (
+              <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-accent px-3 py-1 text-xs font-bold text-white">
+                POPULAR
+              </span>
+            )}
+            <h3 class="text-lg font-bold text-white mb-1">{plan.name}</h3>
+            <p class="text-sm text-muted mb-6">{plan.description}</p>
+            <div class="flex items-baseline gap-1 mb-8">
+              <span class="text-4xl font-extrabold text-white">{plan.price}</span>
+              <span class="text-lg font-bold text-white">만원</span>
+              <span class="text-sm text-muted">/월</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              {plan.features.map((f) => (
+                <li class="flex items-center gap-3 text-sm">
+                  {f.included ? (
+                    <svg class="w-4 h-4 shrink-0 text-accent-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                  ) : (
+                    <svg class="w-4 h-4 shrink-0 text-surface-border" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                  )}
+                  <span class:list={[f.included ? 'text-muted' : 'text-muted/40']}>{f.text}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="#contact" class:list={[
+              'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
+              plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
+            ]}>시작하기</a>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- App Plans -->
+    <div id="panel-app" class="pricing-panel hidden">
+      <div class="grid md:grid-cols-3 gap-6">
+        {appPlans.map((plan) => (
+          <div
+            class:list={[
+              'relative rounded-xl p-8 transition-all duration-300',
+              plan.highlighted
+                ? 'border-2 border-accent bg-gradient-to-b from-accent/10 to-surface-light/30 shadow-lg shadow-accent-glow'
+                : 'border border-surface-border bg-surface-light/20 hover:border-accent/20',
+            ]}
+          >
+            {plan.highlighted && (
+              <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-accent px-3 py-1 text-xs font-bold text-white">
+                POPULAR
+              </span>
+            )}
+            <h3 class="text-lg font-bold text-white mb-1">{plan.name}</h3>
+            <p class="text-sm text-muted mb-6">{plan.description}</p>
+            <div class="flex items-baseline gap-1 mb-8">
+              <span class="text-4xl font-extrabold text-white">{plan.price}</span>
+              <span class="text-lg font-bold text-white">만원</span>
+              <span class="text-sm text-muted">/월</span>
+            </div>
+            <ul class="space-y-3 mb-8">
+              {plan.features.map((f) => (
+                <li class="flex items-center gap-3 text-sm">
+                  {f.included ? (
+                    <svg class="w-4 h-4 shrink-0 text-accent-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                  ) : (
+                    <svg class="w-4 h-4 shrink-0 text-surface-border" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                  )}
+                  <span class:list={[f.included ? 'text-muted' : 'text-muted/40']}>{f.text}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="#contact" class:list={[
+              'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
+              plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
+            ]}>시작하기</a>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Bundle Plans -->
+    <div id="panel-bundle" class="pricing-panel hidden">
+      <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        {bundlePlans.map((plan) => (
+          <div
+            class:list={[
+              'relative rounded-xl p-8 transition-all duration-300',
+              plan.highlighted
+                ? 'border-2 border-accent bg-gradient-to-b from-accent/10 to-surface-light/30 shadow-lg shadow-accent-glow'
+                : 'border border-surface-border bg-surface-light/20 hover:border-accent/20',
+            ]}
+          >
+            {plan.highlighted && (
+              <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-md bg-accent px-3 py-1 text-xs font-bold text-white">
+                BEST VALUE
+              </span>
+            )}
+            <div class="flex items-center gap-3 mb-1">
+              <h3 class="text-lg font-bold text-white">{plan.name}</h3>
+              <span class="rounded-md bg-green-500/20 px-2 py-0.5 text-xs font-bold text-green-400">-{plan.discount}</span>
+            </div>
+            <p class="text-sm text-muted mb-6">{plan.description}</p>
+            <div class="flex items-baseline gap-2 mb-8">
+              <span class="text-4xl font-extrabold text-white">{plan.price}</span>
+              <span class="text-lg font-bold text-white">만원</span>
+              <span class="text-sm text-muted">/월</span>
+              <span class="text-sm text-muted/50 line-through ml-2">{plan.originalPrice}만원</span>
+            </div>
+
+            <div class="space-y-6 mb-8">
+              <div>
+                <p class="text-xs font-semibold text-accent-light font-mono mb-3">웹 관리 포함</p>
+                <ul class="space-y-2">
+                  {plan.webFeatures.map((f) => (
+                    <li class="flex items-center gap-2 text-sm text-muted">
+                      <svg class="w-4 h-4 shrink-0 text-accent-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div class="border-t border-surface-border pt-4">
+                <p class="text-xs font-semibold text-accent-light font-mono mb-3">앱 관리 포함</p>
+                <ul class="space-y-2">
+                  {plan.appFeatures.map((f) => (
+                    <li class="flex items-center gap-2 text-sm text-muted">
+                      <svg class="w-4 h-4 shrink-0 text-accent-light" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <a href="#contact" class:list={[
+              'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
+              plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
+            ]}>시작하기</a>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pricing-tab {
+    color: #94a3b8;
+  }
+  .pricing-tab.active {
+    background: #6366f1;
+    color: white;
+  }
+</style>
+
+<script>
+  const tabs = document.querySelectorAll('.pricing-tab');
+  const panels = document.querySelectorAll('.pricing-panel');
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = (tab as HTMLElement).dataset.tab;
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      panels.forEach((p) => {
+        p.classList.add('hidden');
+        if (p.id === `panel-${target}`) p.classList.remove('hidden');
+      });
+    });
+  });
+</script>
