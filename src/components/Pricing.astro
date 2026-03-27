@@ -203,7 +203,7 @@ const bundlePlans = [
                 </li>
               ))}
             </ul>
-            <a href="#contact" class:list={[
+            <a href={`/auth?plan=web-${plan.name.toLowerCase()}`} class:list={[
               'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
               plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
             ]}>시작하기</a>
@@ -248,7 +248,7 @@ const bundlePlans = [
                 </li>
               ))}
             </ul>
-            <a href="#contact" class:list={[
+            <a href={`/auth?plan=${plan.name.toLowerCase().replace(/\s+/g, '-')}`} class:list={[
               'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
               plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
             ]}>시작하기</a>
@@ -311,7 +311,7 @@ const bundlePlans = [
               </div>
             </div>
 
-            <a href="#contact" class:list={[
+            <a href={`/auth?plan=${plan.name.toLowerCase().replace(/\s+/g, '-')}`} class:list={[
               'block w-full text-center rounded-lg py-3 text-sm font-semibold transition-all',
               plan.highlighted ? 'bg-accent text-white hover:bg-accent-light' : 'border border-surface-border text-muted hover:border-accent/50 hover:text-white',
             ]}>시작하기</a>

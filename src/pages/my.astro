@@ -1,0 +1,200 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="마이페이지 | Workfolio">
+  <header class="fixed top-0 left-0 right-0 z-50 bg-primary/80 backdrop-blur-xl border-b border-surface-border">
+    <nav class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-xl font-bold tracking-tight">
+        <span class="text-accent-light">W</span><span class="text-white">orkfolio</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a href="/#pricing" class="text-sm text-muted hover:text-white transition-colors">요금 안내</a>
+        <button id="btn-logout" class="text-sm text-muted hover:text-white transition-colors">로그아웃</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="pt-32 pb-24">
+    <div class="mx-auto max-w-3xl px-6">
+      <!-- 로딩 -->
+      <div id="loading" class="text-center py-16">
+        <div class="w-12 h-12 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-muted">불러오는 중...</p>
+      </div>
+
+      <!-- 대시보드 -->
+      <div id="dashboard" class="hidden">
+        <span class="text-sm font-medium text-accent-light tracking-wider font-mono">// my page</span>
+        <h1 class="mt-4 text-3xl font-bold text-white mb-2">마이페이지</h1>
+        <p class="text-muted text-sm mb-8" id="user-info"></p>
+
+        <!-- 구독 정보 -->
+        <div id="subscriptions-section">
+          <h2 class="text-lg font-bold text-white mb-4">구독 정보</h2>
+          <div id="no-sub" class="hidden rounded-xl border border-surface-border bg-surface-light/20 p-8 text-center">
+            <p class="text-muted mb-4">활성 구독이 없습니다.</p>
+            <a href="/#pricing" class="inline-block rounded-lg bg-accent px-6 py-2 text-white text-sm font-semibold hover:bg-accent-light transition-all">
+              플랜 둘러보기
+            </a>
+          </div>
+          <div id="sub-list" class="space-y-4"></div>
+        </div>
+
+        <!-- 결제 내역 -->
+        <div class="mt-12">
+          <h2 class="text-lg font-bold text-white mb-4">결제 내역</h2>
+          <div id="no-payments" class="hidden rounded-xl border border-surface-border bg-surface-light/20 p-8 text-center">
+            <p class="text-muted">결제 내역이 없습니다.</p>
+          </div>
+          <div id="payment-list" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 해지 확인 모달 -->
+  <div id="cancel-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="mx-4 w-full max-w-sm rounded-xl border border-surface-border bg-surface p-6">
+      <h3 class="text-lg font-bold text-white mb-2">구독 해지 신청</h3>
+      <p class="text-sm text-muted mb-6">현재 결제 기간까지 서비스가 유지되며, 다음 결제일부터 해지됩니다. 정말 해지하시겠습니까?</p>
+      <div class="flex gap-3">
+        <button id="cancel-confirm" class="flex-1 rounded-lg bg-red-500 py-2.5 text-white text-sm font-semibold hover:bg-red-600 transition-all">
+          해지 신청
+        </button>
+        <button id="cancel-dismiss" class="flex-1 rounded-lg border border-surface-border py-2.5 text-muted text-sm font-semibold hover:text-white hover:border-accent/50 transition-all">
+          취소
+        </button>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script is:inline>
+  const PLAN_NAMES = {
+    'web-lite': 'Lite', 'web-standard': 'Standard', 'web-pro': 'Pro',
+    'app-basic': 'App Basic', 'app-standard': 'App Standard', 'app-pro': 'App Pro',
+    'bundle-standard': 'Bundle Standard', 'bundle-pro': 'Bundle Pro',
+  };
+
+  const STATUS_LABELS = {
+    'active': { text: '구독 중', cls: 'bg-green-500/20 text-green-400' },
+    'cancel_requested': { text: '해지 예정', cls: 'bg-yellow-500/20 text-yellow-400' },
+    'cancelled': { text: '해지됨', cls: 'bg-red-500/20 text-red-400' },
+  };
+
+  let cancelSubId = null;
+
+  async function loadData() {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        window.location.href = '/auth';
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+
+      // 사용자 정보
+      const c = data.customer;
+      const infoText = c
+        ? `${c.name}${c.company ? ' · ' + c.company : ''} · ${data.email}`
+        : data.email;
+      document.getElementById('user-info').textContent = infoText;
+
+      // 구독 목록
+      const subs = data.subscriptions || [];
+      if (subs.length === 0) {
+        document.getElementById('no-sub').classList.remove('hidden');
+      } else {
+        const subList = document.getElementById('sub-list');
+        subs.forEach(sub => {
+          const status = STATUS_LABELS[sub.status] || { text: sub.status, cls: 'bg-gray-500/20 text-gray-400' };
+          const div = document.createElement('div');
+          div.className = 'rounded-xl border border-surface-border bg-surface-light/20 p-6';
+          div.innerHTML = `
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-white font-bold">${PLAN_NAMES[sub.plan] || sub.plan}</h3>
+                <p class="text-sm text-muted mt-1">월 ${(sub.amount / 10000).toFixed(0)}만원 정기결제</p>
+              </div>
+              <span class="rounded-md px-3 py-1 text-xs font-bold ${status.cls}">${status.text}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs text-muted">
+              <span>시작일: ${new Date(sub.created_at).toLocaleDateString('ko-KR')}</span>
+              ${sub.status === 'active'
+                ? `<button class="cancel-btn text-red-400 hover:text-red-300 transition-colors" data-id="${sub.id}">해지 신청</button>`
+                : ''}
+            </div>
+          `;
+          subList.appendChild(div);
+        });
+
+        // 해지 버튼 이벤트
+        document.querySelectorAll('.cancel-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            cancelSubId = parseInt(btn.dataset.id);
+            document.getElementById('cancel-modal').classList.remove('hidden');
+          });
+        });
+      }
+
+      // 결제 내역
+      const payments = data.payments || [];
+      if (payments.length === 0) {
+        document.getElementById('no-payments').classList.remove('hidden');
+      } else {
+        const payList = document.getElementById('payment-list');
+        payments.forEach(p => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center justify-between rounded-lg border border-surface-border/50 bg-surface-light/10 px-4 py-3 text-sm';
+          div.innerHTML = `
+            <span class="text-muted">${p.paid_at ? new Date(p.paid_at).toLocaleDateString('ko-KR') : '-'}</span>
+            <span class="text-white font-medium">${p.amount.toLocaleString()}원</span>
+            <span class="text-xs ${p.status === 'done' ? 'text-green-400' : 'text-yellow-400'}">${p.status === 'done' ? '결제완료' : p.status}</span>
+          `;
+          payList.appendChild(div);
+        });
+      }
+    } catch (err) {
+      window.location.href = '/auth';
+    }
+  }
+
+  // 해지 모달
+  document.getElementById('cancel-dismiss').addEventListener('click', () => {
+    document.getElementById('cancel-modal').classList.add('hidden');
+    cancelSubId = null;
+  });
+
+  document.getElementById('cancel-confirm').addEventListener('click', async () => {
+    const btn = document.getElementById('cancel-confirm');
+    btn.disabled = true;
+    btn.textContent = '처리 중...';
+
+    try {
+      const res = await fetch('/api/billing/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: cancelSubId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.location.reload();
+    } catch (err) {
+      alert(err.message);
+      btn.disabled = false;
+      btn.textContent = '해지 신청';
+    }
+  });
+
+  // 로그아웃
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
+  });
+
+  loadData();
+</script>

@@ -27,12 +27,15 @@ const navItems = [
       ))}
     </ul>
 
-    <a
-      href="#contact"
-      class="hidden md:inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-light transition-colors"
-    >
-      상담 신청
-    </a>
+    <div class="hidden md:flex items-center gap-4">
+      <a id="nav-my" href="/my" class="hidden text-sm text-muted hover:text-white transition-colors">마이페이지</a>
+      <a
+        href="#contact"
+        class="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white hover:bg-accent-light transition-colors"
+      >
+        상담 신청
+      </a>
+    </div>
 
     <button
       id="mobile-menu-btn"
@@ -54,6 +57,9 @@ const navItems = [
           </a>
         </li>
       ))}
+      <li id="mobile-my" class="hidden">
+        <a href="/my" class="block text-base text-muted hover:text-white">마이페이지</a>
+      </li>
       <li>
         <a href="#contact" class="block text-center rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white">
           상담 신청
@@ -72,6 +78,14 @@ const navItems = [
       header?.classList.remove('bg-primary/80', 'backdrop-blur-xl', 'border-surface-border');
     }
   });
+
+  // 로그인 상태면 마이페이지 링크 표시
+  fetch('/api/auth/me').then(r => {
+    if (r.ok) {
+      document.getElementById('nav-my')?.classList.remove('hidden');
+      document.getElementById('mobile-my')?.classList.remove('hidden');
+    }
+  }).catch(() => {});
 
   const btn = document.getElementById('mobile-menu-btn');
   const menu = document.getElementById('mobile-menu');

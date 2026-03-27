@@ -1,0 +1,102 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="결제 완료 | Workfolio">
+  <header class="fixed top-0 left-0 right-0 z-50 bg-primary/80 backdrop-blur-xl border-b border-surface-border">
+    <nav class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-xl font-bold tracking-tight">
+        <span class="text-accent-light">W</span><span class="text-white">orkfolio</span>
+      </a>
+    </nav>
+  </header>
+
+  <main class="pt-32 pb-24">
+    <div class="mx-auto max-w-lg px-6 text-center">
+      <div id="loading-state">
+        <div class="w-16 h-16 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-6"></div>
+        <h1 class="text-2xl font-bold text-white mb-2">결제 처리 중...</h1>
+        <p class="text-muted">카드 등록을 확인하고 있습니다.</p>
+      </div>
+
+      <div id="success-state" class="hidden">
+        <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-white mb-2">구독이 시작되었습니다</h1>
+        <p class="text-muted mb-2" id="result-plan"></p>
+        <p class="text-muted mb-8" id="result-amount"></p>
+        <div class="rounded-xl border border-surface-border bg-surface-light/20 p-6 mb-8 text-left text-sm text-muted space-y-2">
+          <p>다음 결제일에 자동으로 결제됩니다.</p>
+          <p>구독 관리 및 해지는 <a href="/my" class="text-accent-light hover:underline">마이페이지</a>에서 가능합니다.</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/my" class="inline-block rounded-lg bg-accent px-8 py-3 text-white font-semibold hover:bg-accent-light transition-all">
+            내 구독 관리
+          </a>
+          <a href="/" class="inline-block rounded-lg border border-surface-border px-8 py-3 text-muted font-semibold hover:text-white hover:border-accent/50 transition-all">
+            홈으로
+          </a>
+        </div>
+      </div>
+
+      <div id="error-state" class="hidden">
+        <div class="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-white mb-2">결제 처리 실패</h1>
+        <p class="text-muted mb-8" id="error-message">오류가 발생했습니다.</p>
+        <a href="javascript:history.back()" class="inline-block rounded-lg border border-surface-border px-8 py-3 text-muted font-semibold hover:text-white hover:border-accent/50 transition-all">
+          다시 시도하기
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script is:inline>
+  (async () => {
+    const params = new URLSearchParams(window.location.search);
+    const authKey = params.get('authKey');
+    const customerKey = params.get('customerKey');
+    const plan = params.get('plan');
+
+    const loadingEl = document.getElementById('loading-state');
+    const successEl = document.getElementById('success-state');
+    const errorEl = document.getElementById('error-state');
+
+    if (!authKey || !customerKey) {
+      loadingEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+      document.getElementById('error-message').textContent = '잘못된 접근입니다.';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/billing/issue-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authKey, customerKey, plan }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || '빌링키 발급에 실패했습니다.');
+      }
+
+      loadingEl.classList.add('hidden');
+      successEl.classList.remove('hidden');
+      document.getElementById('result-plan').textContent = data.planName + ' 플랜';
+      document.getElementById('result-amount').textContent = '월 ' + (data.amount / 10000) + '만원 정기결제';
+    } catch (err) {
+      loadingEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+      document.getElementById('error-message').textContent = err.message;
+    }
+  })();
+</script>

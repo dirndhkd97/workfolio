@@ -6,7 +6,11 @@
     {
       "binding": "DB",
       "database_name": "workfolio-db",
-      "database_id": "070de128-ce30-40d1-9ba2-bc00e08cc073"
+      "database_id": "070de128-ce30-40d1-9ba2-bc00e08cc073",
+      "migrations_dir": "migrations"
     }
   ]
+  // TOSS_SECRET_KEY는 wrangler secret으로 설정:
+  // wrangler pages secret put TOSS_SECRET_KEY
+  // 값: test_sk_GePWvyJnrKv2zd07y64eVgLzN97E
 }
