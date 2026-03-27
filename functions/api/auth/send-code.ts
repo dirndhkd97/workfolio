@@ -3,7 +3,7 @@ interface Env {
   MAILGUN_API_KEY: string;
 }
 
-const MAILGUN_DOMAIN = 'workfolio.life';
+const MAILGUN_DOMAIN = 'sandbox59cce7facdc3422e95bf266dee3e4d2f.mailgun.org';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const headers = { 'Content-Type': 'application/json' };
