@@ -1,7 +1,9 @@
 interface Env {
   DB: D1Database;
-  RESEND_API_KEY: string;
+  MAILGUN_API_KEY: string;
 }
+
+const MAILGUN_DOMAIN = 'workfolio.life';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const headers = { 'Content-Type': 'application/json' };
@@ -30,28 +32,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       .bind(email, code)
       .run();
 
-    // Resend로 이메일 발송
-    await fetch('https://api.resend.com/emails', {
+    // Mailgun으로 이메일 발송
+    const form = new FormData();
+    form.append('from', `Workfolio <noreply@${MAILGUN_DOMAIN}>`);
+    form.append('to', email);
+    form.append('subject', '[Workfolio] 인증코드 안내');
+    form.append('html', `
+      <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 32px;">
+        <h2 style="color: #1a1a2e;">Workfolio 인증코드</h2>
+        <p style="color: #666; font-size: 14px;">아래 인증코드를 입력해주세요. (10분간 유효)</p>
+        <div style="background: #f4f4f8; border-radius: 8px; padding: 24px; text-align: center; margin: 24px 0;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #6366f1;">${code}</span>
+        </div>
+        <p style="color: #999; font-size: 12px;">본인이 요청하지 않았다면 이 메일을 무시해주세요.</p>
+      </div>
+    `);
+
+    await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
+        'Authorization': 'Basic ' + btoa('api:' + env.MAILGUN_API_KEY),
       },
-      body: JSON.stringify({
-        from: 'Workfolio <noreply@workfolio.life>',
-        to: [email],
-        subject: '[Workfolio] 인증코드 안내',
-        html: `
-          <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 32px;">
-            <h2 style="color: #1a1a2e;">Workfolio 인증코드</h2>
-            <p style="color: #666; font-size: 14px;">아래 인증코드를 입력해주세요. (10분간 유효)</p>
-            <div style="background: #f4f4f8; border-radius: 8px; padding: 24px; text-align: center; margin: 24px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #6366f1;">${code}</span>
-            </div>
-            <p style="color: #999; font-size: 12px;">본인이 요청하지 않았다면 이 메일을 무시해주세요.</p>
-          </div>
-        `,
-      }),
+      body: form,
     });
 
     return new Response(JSON.stringify({ success: true }), { status: 200, headers });

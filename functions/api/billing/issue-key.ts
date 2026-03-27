@@ -1,7 +1,7 @@
 interface Env {
   DB: D1Database;
   TOSS_SECRET_KEY: string;
-  RESEND_API_KEY: string;
+  MAILGUN_API_KEY: string;
 }
 
 function getSessionToken(request: Request): string | null {
