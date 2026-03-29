@@ -14,73 +14,171 @@ import Layout from '../layouts/Layout.astro';
 
   <main class="pt-32 pb-24">
     <div class="mx-auto max-w-md px-6">
-      <span class="text-sm font-medium text-accent-light tracking-wider font-mono">// login</span>
-      <h1 class="mt-4 text-3xl font-bold text-white mb-2">로그인 / 회원가입</h1>
-      <p class="text-muted text-sm mb-8">이메일 인증으로 간편하게 시작하세요.</p>
+      <!-- 탭 -->
+      <div class="flex mb-8 border-b border-surface-border">
+        <button id="tab-login" class="auth-tab active flex-1 pb-3 text-sm font-semibold text-center transition-colors">로그인</button>
+        <button id="tab-signup" class="auth-tab flex-1 pb-3 text-sm font-semibold text-center transition-colors">회원가입</button>
+      </div>
 
-      <!-- Step 1: 이메일 입력 -->
-      <div id="step-email" class="space-y-4">
+      <!-- 로그인 패널 -->
+      <div id="panel-login" class="space-y-4">
         <div>
-          <label for="email" class="block text-sm text-muted mb-1">이메일</label>
-          <input type="email" id="email"
+          <label class="block text-sm text-muted mb-1">이메일</label>
+          <input type="email" id="login-email"
             class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
             placeholder="example@email.com" />
         </div>
-        <button id="btn-send-code"
+        <div>
+          <label class="block text-sm text-muted mb-1">비밀번호</label>
+          <input type="password" id="login-password"
+            class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+            placeholder="비밀번호 입력" />
+        </div>
+        <button id="btn-login"
           class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
-          인증코드 받기
+          로그인
+        </button>
+        <button id="btn-forgot" class="w-full text-sm text-muted hover:text-accent-light transition-colors">
+          비밀번호를 잊으셨나요?
         </button>
       </div>
 
-      <!-- Step 2: 인증코드 입력 -->
-      <div id="step-code" class="hidden space-y-4">
-        <p class="text-sm text-muted"><span id="sent-email" class="text-accent-light"></span>으로 인증코드를 보냈습니다.</p>
-        <div>
-          <label for="code" class="block text-sm text-muted mb-1">인증코드 (6자리)</label>
-          <input type="text" id="code" maxlength="6" inputmode="numeric"
-            class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm text-center tracking-[0.5em] text-xl placeholder:text-muted/50 focus:border-accent focus:outline-none"
-            placeholder="000000" />
+      <!-- 회원가입 패널 -->
+      <div id="panel-signup" class="hidden">
+        <!-- Step 1: 이메일 인증 -->
+        <div id="signup-step1" class="space-y-4">
+          <p class="text-sm text-muted mb-2">이메일 인증 후 가입이 진행됩니다.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">이메일</label>
+            <input type="email" id="signup-email"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="example@email.com" />
+          </div>
+          <button id="btn-send-code"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            인증코드 받기
+          </button>
         </div>
-        <button id="btn-verify"
-          class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
-          확인
-        </button>
-        <button id="btn-resend" class="w-full text-sm text-muted hover:text-accent-light transition-colors">
-          인증코드 재발송
-        </button>
+
+        <!-- Step 2: 인증코드 입력 -->
+        <div id="signup-step2" class="hidden space-y-4">
+          <p class="text-sm text-muted"><span id="sent-email" class="text-accent-light"></span>으로 인증코드를 보냈습니다.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">인증코드 (6자리)</label>
+            <input type="text" id="signup-code" maxlength="6" inputmode="numeric"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm text-center tracking-[0.5em] text-xl placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="000000" />
+          </div>
+          <button id="btn-verify"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            확인
+          </button>
+          <button id="btn-resend" class="w-full text-sm text-muted hover:text-accent-light transition-colors">
+            인증코드 재발송
+          </button>
+        </div>
+
+        <!-- Step 3: 정보 + 비밀번호 입력 -->
+        <div id="signup-step3" class="hidden space-y-4">
+          <p class="text-sm text-accent-light font-semibold">인증 완료! 정보를 입력해주세요.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">이름 <span class="text-red-400">*</span></label>
+            <input type="text" id="reg-name"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="홍길동" />
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">회사/단체명</label>
+            <input type="text" id="reg-company"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="(주)회사명" />
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">연락처</label>
+            <input type="tel" id="reg-phone"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="010-0000-0000" />
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">비밀번호 <span class="text-red-400">*</span></label>
+            <input type="password" id="reg-password"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="6자 이상" />
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">비밀번호 확인 <span class="text-red-400">*</span></label>
+            <input type="password" id="reg-password-confirm"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="비밀번호 재입력" />
+          </div>
+          <button id="btn-register"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            가입 완료
+          </button>
+        </div>
       </div>
 
-      <!-- Step 3: 회원 정보 입력 (신규 회원) -->
-      <div id="step-register" class="hidden space-y-4">
-        <p class="text-sm text-accent-light font-semibold">인증 완료! 추가 정보를 입력해주세요.</p>
-        <div>
-          <label for="reg-name" class="block text-sm text-muted mb-1">이름 <span class="text-red-400">*</span></label>
-          <input type="text" id="reg-name"
-            class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
-            placeholder="홍길동" />
+      <!-- 비밀번호 재설정 패널 -->
+      <div id="panel-reset" class="hidden">
+        <div id="reset-step1" class="space-y-4">
+          <p class="text-sm text-muted mb-2">가입한 이메일로 인증코드를 보내드립니다.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">이메일</label>
+            <input type="email" id="reset-email"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="example@email.com" />
+          </div>
+          <button id="btn-reset-send"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            인증코드 받기
+          </button>
+          <button id="btn-back-login" class="w-full text-sm text-muted hover:text-accent-light transition-colors">
+            로그인으로 돌아가기
+          </button>
         </div>
-        <div>
-          <label for="reg-company" class="block text-sm text-muted mb-1">회사/단체명</label>
-          <input type="text" id="reg-company"
-            class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
-            placeholder="(주)회사명" />
+        <div id="reset-step2" class="hidden space-y-4">
+          <p class="text-sm text-muted"><span id="reset-sent-email" class="text-accent-light"></span>으로 인증코드를 보냈습니다.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">인증코드 (6자리)</label>
+            <input type="text" id="reset-code" maxlength="6" inputmode="numeric"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm text-center tracking-[0.5em] text-xl placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="000000" />
+          </div>
+          <button id="btn-reset-verify"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            확인
+          </button>
         </div>
-        <div>
-          <label for="reg-phone" class="block text-sm text-muted mb-1">연락처</label>
-          <input type="tel" id="reg-phone"
-            class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
-            placeholder="010-0000-0000" />
+        <div id="reset-step3" class="hidden space-y-4">
+          <p class="text-sm text-accent-light font-semibold">새 비밀번호를 설정해주세요.</p>
+          <div>
+            <label class="block text-sm text-muted mb-1">새 비밀번호</label>
+            <input type="password" id="reset-password"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="6자 이상" />
+          </div>
+          <div>
+            <label class="block text-sm text-muted mb-1">비밀번호 확인</label>
+            <input type="password" id="reset-password-confirm"
+              class="w-full rounded-lg border border-surface-border bg-primary/50 px-4 py-3 text-white text-sm placeholder:text-muted/50 focus:border-accent focus:outline-none"
+              placeholder="비밀번호 재입력" />
+          </div>
+          <button id="btn-reset-submit"
+            class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
+            비밀번호 변경
+          </button>
         </div>
-        <button id="btn-register"
-          class="w-full rounded-xl bg-accent py-3 text-white font-semibold transition-all hover:bg-accent-light disabled:opacity-40 disabled:cursor-not-allowed">
-          가입 완료
-        </button>
       </div>
 
       <p id="error-msg" class="mt-4 text-center text-sm text-red-400 hidden"></p>
     </div>
   </main>
 </Layout>
+
+<style>
+  .auth-tab { color: #94a3b8; border-bottom: 2px solid transparent; }
+  .auth-tab.active { color: white; border-bottom-color: #6366f1; }
+</style>
 
 <script is:inline>
   // 이미 로그인된 경우 리디렉트
@@ -91,7 +189,6 @@ import Layout from '../layouts/Layout.astro';
         const params = new URLSearchParams(window.location.search);
         const plan = params.get('plan');
         window.location.href = plan ? '/checkout?plan=' + plan : '/my';
-        return;
       }
     } catch {}
   })();
@@ -100,23 +197,59 @@ import Layout from '../layouts/Layout.astro';
   let currentEmail = '';
 
   const errorMsg = document.getElementById('error-msg');
-  function showError(msg) {
-    errorMsg.textContent = msg;
-    errorMsg.classList.remove('hidden');
-  }
-  function hideError() {
-    errorMsg.classList.add('hidden');
+  function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.remove('hidden'); }
+  function hideError() { errorMsg.classList.add('hidden'); }
+
+  function showPanel(name) {
+    ['panel-login', 'panel-signup', 'panel-reset'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('panel-' + name).classList.remove('hidden');
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    if (name === 'login') document.getElementById('tab-login').classList.add('active');
+    if (name === 'signup') document.getElementById('tab-signup').classList.add('active');
+    hideError();
   }
 
-  // Step 1: 인증코드 발송
+  // 탭 전환
+  document.getElementById('tab-login').addEventListener('click', () => showPanel('login'));
+  document.getElementById('tab-signup').addEventListener('click', () => showPanel('signup'));
+  document.getElementById('btn-forgot').addEventListener('click', () => showPanel('reset'));
+  document.getElementById('btn-back-login').addEventListener('click', () => showPanel('login'));
+
+  // ── 로그인 ──
+  document.getElementById('btn-login').addEventListener('click', async () => {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!email || !password) { showError('이메일과 비밀번호를 입력해주세요.'); return; }
+    hideError();
+
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true; btn.textContent = '로그인 중...';
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const plan = params.get('plan');
+      window.location.href = plan ? '/checkout?plan=' + plan : '/my';
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false; btn.textContent = '로그인';
+    }
+  });
+
+  // ── 회원가입 Step 1: 인증코드 발송 ──
   document.getElementById('btn-send-code').addEventListener('click', async () => {
-    const email = document.getElementById('email').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
     if (!email) { showError('이메일을 입력해주세요.'); return; }
     hideError();
 
     const btn = document.getElementById('btn-send-code');
-    btn.disabled = true;
-    btn.textContent = '발송 중...';
+    btn.disabled = true; btn.textContent = '발송 중...';
 
     try {
       const res = await fetch('/api/auth/send-code', {
@@ -129,24 +262,22 @@ import Layout from '../layouts/Layout.astro';
 
       currentEmail = email;
       document.getElementById('sent-email').textContent = email;
-      document.getElementById('step-email').classList.add('hidden');
-      document.getElementById('step-code').classList.remove('hidden');
+      document.getElementById('signup-step1').classList.add('hidden');
+      document.getElementById('signup-step2').classList.remove('hidden');
     } catch (err) {
       showError(err.message);
-      btn.disabled = false;
-      btn.textContent = '인증코드 받기';
+      btn.disabled = false; btn.textContent = '인증코드 받기';
     }
   });
 
-  // Step 2: 인증코드 확인
+  // ── 회원가입 Step 2: 인증코드 확인 ──
   document.getElementById('btn-verify').addEventListener('click', async () => {
-    const code = document.getElementById('code').value.trim();
+    const code = document.getElementById('signup-code').value.trim();
     if (!code || code.length !== 6) { showError('6자리 인증코드를 입력해주세요.'); return; }
     hideError();
 
     const btn = document.getElementById('btn-verify');
-    btn.disabled = true;
-    btn.textContent = '확인 중...';
+    btn.disabled = true; btn.textContent = '확인 중...';
 
     try {
       const res = await fetch('/api/auth/verify-code', {
@@ -157,20 +288,11 @@ import Layout from '../layouts/Layout.astro';
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      document.getElementById('step-code').classList.add('hidden');
-
-      if (data.isNewUser) {
-        // 신규 회원 → 추가 정보 입력
-        document.getElementById('step-register').classList.remove('hidden');
-      } else {
-        // 기존 회원 → 바로 이동
-        const plan = params.get('plan');
-        window.location.href = plan ? '/checkout?plan=' + plan : '/my';
-      }
+      document.getElementById('signup-step2').classList.add('hidden');
+      document.getElementById('signup-step3').classList.remove('hidden');
     } catch (err) {
       showError(err.message);
-      btn.disabled = false;
-      btn.textContent = '확인';
+      btn.disabled = false; btn.textContent = '확인';
     }
   });
 
@@ -178,32 +300,31 @@ import Layout from '../layouts/Layout.astro';
   document.getElementById('btn-resend').addEventListener('click', async () => {
     hideError();
     try {
-      const res = await fetch('/api/auth/send-code', {
+      await fetch('/api/auth/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: currentEmail }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      document.getElementById('code').value = '';
+      document.getElementById('signup-code').value = '';
       showError('인증코드가 재발송되었습니다.');
-      errorMsg.classList.remove('text-red-400');
-      errorMsg.classList.add('text-green-400');
+      errorMsg.classList.remove('text-red-400'); errorMsg.classList.add('text-green-400');
       setTimeout(() => { errorMsg.classList.remove('text-green-400'); errorMsg.classList.add('text-red-400'); hideError(); }, 3000);
-    } catch (err) {
-      showError(err.message);
-    }
+    } catch (err) { showError(err.message); }
   });
 
-  // Step 3: 회원가입
+  // ── 회원가입 Step 3: 정보 + 비밀번호 ──
   document.getElementById('btn-register').addEventListener('click', async () => {
     const name = document.getElementById('reg-name').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const confirm = document.getElementById('reg-password-confirm').value;
+
     if (!name) { showError('이름을 입력해주세요.'); return; }
+    if (!password || password.length < 6) { showError('비밀번호는 6자 이상이어야 합니다.'); return; }
+    if (password !== confirm) { showError('비밀번호가 일치하지 않습니다.'); return; }
     hideError();
 
     const btn = document.getElementById('btn-register');
-    btn.disabled = true;
-    btn.textContent = '처리 중...';
+    btn.disabled = true; btn.textContent = '처리 중...';
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -213,6 +334,7 @@ import Layout from '../layouts/Layout.astro';
           name,
           company: document.getElementById('reg-company').value.trim(),
           phone: document.getElementById('reg-phone').value.trim(),
+          password,
         }),
       });
       const data = await res.json();
@@ -222,8 +344,92 @@ import Layout from '../layouts/Layout.astro';
       window.location.href = plan ? '/checkout?plan=' + plan : '/my';
     } catch (err) {
       showError(err.message);
-      btn.disabled = false;
-      btn.textContent = '가입 완료';
+      btn.disabled = false; btn.textContent = '가입 완료';
+    }
+  });
+
+  // ── 비밀번호 재설정 Step 1 ──
+  document.getElementById('btn-reset-send').addEventListener('click', async () => {
+    const email = document.getElementById('reset-email').value.trim();
+    if (!email) { showError('이메일을 입력해주세요.'); return; }
+    hideError();
+
+    const btn = document.getElementById('btn-reset-send');
+    btn.disabled = true; btn.textContent = '발송 중...';
+
+    try {
+      const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      currentEmail = email;
+      document.getElementById('reset-sent-email').textContent = email;
+      document.getElementById('reset-step1').classList.add('hidden');
+      document.getElementById('reset-step2').classList.remove('hidden');
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false; btn.textContent = '인증코드 받기';
+    }
+  });
+
+  // ── 비밀번호 재설정 Step 2 ──
+  document.getElementById('btn-reset-verify').addEventListener('click', async () => {
+    const code = document.getElementById('reset-code').value.trim();
+    if (!code || code.length !== 6) { showError('6자리 인증코드를 입력해주세요.'); return; }
+    hideError();
+
+    const btn = document.getElementById('btn-reset-verify');
+    btn.disabled = true; btn.textContent = '확인 중...';
+
+    try {
+      const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: currentEmail, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      document.getElementById('reset-step2').classList.add('hidden');
+      document.getElementById('reset-step3').classList.remove('hidden');
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false; btn.textContent = '확인';
+    }
+  });
+
+  // ── 비밀번호 재설정 Step 3 ──
+  document.getElementById('btn-reset-submit').addEventListener('click', async () => {
+    const password = document.getElementById('reset-password').value;
+    const confirm = document.getElementById('reset-password-confirm').value;
+
+    if (!password || password.length < 6) { showError('비밀번호는 6자 이상이어야 합니다.'); return; }
+    if (password !== confirm) { showError('비밀번호가 일치하지 않습니다.'); return; }
+    hideError();
+
+    const btn = document.getElementById('btn-reset-submit');
+    btn.disabled = true; btn.textContent = '처리 중...';
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '_reset_', password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      showPanel('login');
+      showError('비밀번호가 변경되었습니다. 로그인해주세요.');
+      errorMsg.classList.remove('text-red-400'); errorMsg.classList.add('text-green-400');
+      setTimeout(() => { errorMsg.classList.remove('text-green-400'); errorMsg.classList.add('text-red-400'); hideError(); }, 5000);
+    } catch (err) {
+      showError(err.message);
+      btn.disabled = false; btn.textContent = '비밀번호 변경';
     }
   });
 </script>
