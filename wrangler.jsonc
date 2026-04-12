@@ -12,5 +12,4 @@
   ]
   // TOSS_SECRET_KEY는 wrangler secret으로 설정:
   // wrangler pages secret put TOSS_SECRET_KEY
-  // 값: test_sk_GePWvyJnrKv2zd07y64eVgLzN97E
 }

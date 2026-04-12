@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+const tossClientKey = import.meta.env.PUBLIC_TOSS_CLIENT_KEY;
 ---
 
 <Layout title="결제하기 | Workfolio">
@@ -87,6 +88,8 @@ import Layout from '../layouts/Layout.astro';
       </div>
     </div>
   </main>
+
+  <meta name="toss-client-key" content={tossClientKey} />
 
   <footer class="border-t border-surface-border">
     <div class="mx-auto max-w-7xl px-6 py-8 space-y-4 text-xs text-muted/60">
@@ -177,7 +180,7 @@ import Layout from '../layouts/Layout.astro';
   });
 
   // 결제
-  const clientKey = 'test_ck_DnyRpQWGrNWKoa97aQoL8Kwv1M9E';
+  const clientKey = document.querySelector('meta[name="toss-client-key"]').content;
 
   payBtn.addEventListener('click', async () => {
     const errorMsg = document.getElementById('error-msg');
