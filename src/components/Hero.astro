@@ -1,3 +1,40 @@
+---
+const techStack = [
+  'HTML',
+  'CSS',
+  'JavaScript',
+  'TypeScript',
+  'React',
+  'Vue',
+  'Next.js',
+  'Node.js',
+  'Express',
+  'NestJS',
+  'Python',
+  'Django',
+  'FastAPI',
+  'Java',
+  'Spring Boot',
+  'Kotlin',
+  'Swift',
+  'React Native',
+  'Flutter',
+  'PostgreSQL',
+  'MySQL',
+  'MongoDB',
+  'Redis',
+  'Firebase',
+  'AWS',
+  'Google Cloud',
+  'Azure',
+  'Docker',
+  'Kubernetes',
+  'GitHub Actions',
+  'Vercel',
+  'Figma',
+];
+---
+
 <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
   <!-- Grid background -->
   <div class="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]"></div>
@@ -43,9 +80,9 @@
     </div>
 
     <!-- Tech tags -->
-    <div class="animate-fade-up mt-20 flex flex-wrap items-center justify-center gap-3"
+    <div class="animate-fade-up mx-auto mt-20 flex max-w-5xl flex-wrap items-center justify-center gap-2.5"
          style="animation-delay: 0.4s">
-      {['React', 'Next.js', 'Flutter', 'Astro', 'Cloudflare', 'Supabase'].map((tech) => (
+      {techStack.map((tech) => (
         <span class="rounded-md border border-surface-border bg-surface-light/30 px-3 py-1 text-xs text-muted font-mono">
           {tech}
         </span>
