@@ -1,9 +1,29 @@
 ---
 import CommunityLayout from '../layouts/CommunityLayout.astro';
 import Board from '../components/community/Board';
+import { BOARD_PAGES, boardPath } from '../lib/community/seo';
 ---
 
 <CommunityLayout>
   <Board client:load />
-  <noscript><p style="padding: 2rem; text-align: center">게시글 검색과 댓글 등 커뮤니티 기능을 이용하려면 JavaScript를 켜주세요. 회원가입 없이 둘러볼 수 있습니다.</p></noscript>
+  <section class="community-intro" aria-labelledby="community-about">
+    <span class="intro-kicker">회사에선 못 한 말</span>
+    <h2 id="community-about">회사 뒷담 갤 감성, 퇴근 후엔 직함 빼고.</h2>
+    <p>상사 때문에 쌓인 스트레스, 말도 안 되는 회의, 오늘 또 저지른 실수. Workfolio는 회사 생활의 뒷이야기를 별명으로 나누는 직장인 익명 커뮤니티예요. 눈팅은 로그인 없이, 썰 풀기와 댓글·공감은 로그인하고 함께해요.</p>
+    <details>
+      <summary>‘어둠의 블라인드’ 같은 편한 커뮤니티를 찾고 있나요?</summary>
+      <p>회사에서 쓰는 직함을 내려놓고 별명으로 이야기하는 퇴근 후 아지트예요. 빡대가리 게시판에서 내 흑역사를 풀고, 월급루팡 게시판에서 잠깐 쉬어가세요. Workfolio는 독립적으로 운영하며 블라인드와 제휴한 서비스가 아니에요.</p>
+    </details>
+    <nav class="intro-boards" aria-label="주제별 이야기 읽기">
+      {BOARD_PAGES.map(board => <a href={boardPath(board.slug)}><strong>{board.category}</strong><span>{board.description}</span></a>)}
+    </nav>
+  </section>
+  <noscript><p class="community-noscript">위 게시판 링크에서 글과 댓글을 읽을 수 있어요. 글쓰기·댓글·공감에 참여하려면 JavaScript를 켜주세요.</p></noscript>
 </CommunityLayout>
+
+<style>
+  .community-intro{max-width:970px;margin:0 auto 64px;padding:30px 40px;border-top:1px solid #dce3d4;color:#52624b;line-height:1.85}
+  .intro-kicker{font-size:11px;font-weight:700;color:#65844b}.community-intro h2{font-size:23px;line-height:1.5;color:#294d36;margin:8px 0 12px}.community-intro>p,.community-intro details{font-size:13px}.community-intro details{margin-top:18px}.community-intro summary{cursor:pointer;font-weight:700}.community-intro details p{margin-top:8px}.intro-boards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:24px}.intro-boards a{padding:17px;background:#fff;border:1px solid #e1e7d9;border-radius:9px;text-decoration:none}.intro-boards a:hover{border-color:#809e68}.intro-boards strong{display:block;color:#2e5438;font-size:14px}.intro-boards span{display:block;margin-top:5px;font-size:11px;color:#77836d}.community-noscript{padding:20px;text-align:center}
+  @media(max-width:700px){.community-intro{padding:25px 20px;margin-bottom:90px}.community-intro h2{font-size:21px}.intro-boards{grid-template-columns:1fr 1fr}}
+  @media(max-width:380px){.intro-boards{grid-template-columns:1fr}}
+</style>

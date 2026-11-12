@@ -1,8 +1,10 @@
 ---
 import '../styles/community-base.css';
 import '../styles/community.css';
-const title = 'Workfolio · 퇴근 후, 우리 이야기';
-const description = '일은 했고, 썰은 풀어야지. 빡대가리 게시판부터 월급루팡까지, 직장인의 퇴근 후 커뮤니티. 로그인 없이 읽고, 로그인하면 함께 떠들어요.';
+import { HOME_TITLE, HOME_DESCRIPTION, SITE_ORIGIN, SITE_NAME, SOCIAL_IMAGE } from '../lib/community/seo';
+interface Props { title?: string; description?: string; canonical?: string; noindex?: boolean; }
+const { title = HOME_TITLE, description = HOME_DESCRIPTION, canonical = `${SITE_ORIGIN}/`, noindex = false } = Astro.props;
+const website = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${SITE_ORIGIN}/#website`, name: SITE_NAME, alternateName: ['Workfolio', '워크폴리오'], url: `${SITE_ORIGIN}/`, description: HOME_DESCRIPTION, inLanguage: 'ko-KR' };
 ---
 <!doctype html>
 <html lang="ko">
@@ -11,14 +13,25 @@ const description = '일은 했고, 썰은 풀어야지. 빡대가리 게시판�
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <meta name="theme-color" content="#234f39" />
+    <meta name="robots" content={noindex ? 'noindex, follow' : 'index, follow, max-image-preview:large'} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://workfolio.life/" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={SITE_NAME} />
     <meta property="og:locale" content="ko_KR" />
-    <link rel="canonical" href="https://workfolio.life/" />
+    <meta property="og:image" content={SOCIAL_IMAGE} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="워크폴리오 — 회사에선 못 한 말, 퇴근하고 풀자." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={SOCIAL_IMAGE} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/community-favicon.svg" />
     <title>{title}</title>
+    {!noindex && <script type="application/ld+json" set:html={JSON.stringify(website).replace(/</g, '\\u003c')} />}
   </head>
   <body><slot /></body>
 </html>

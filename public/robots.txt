@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://workfolio.life/sitemap-index.xml
+Sitemap: https://workfolio.life/sitemap.xml
