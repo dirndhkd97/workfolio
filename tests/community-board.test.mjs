@@ -46,7 +46,7 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
   }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
@@ -66,7 +66,7 @@ async function create() { const response = await mutate(draft); assert.equal(res
 test('sample feed is explicitly fictional with zero counters and read-only anonymous identity',async () => {
   const response = await list(null); const data = await response.json();
   assert.equal(data.signedIn,false); assert.equal(data.posts.length,6);
-  assert.ok(data.posts.every(post => post.sample && !post.mine && post.commentCount===0 && Object.values(post.reactions).every(count=>count===0)));
+  assert.ok(data.posts.every(post => post.sample && !post.mine && post.isAdminAuthor === false && post.commentCount===0 && Object.values(post.reactions).every(count=>count===0)));
   assert.equal((await mutate(draft,null)).status,401);
   assert.equal(response.headers.get('cache-control'),'private, no-store');
 });
@@ -205,10 +205,10 @@ test('all six boards are accepted and community writes leave commerce data untou
   assert.deepEqual({...sqlite.prepare('SELECT * FROM customers').get()},{id:1,email:'existing@example.test'});
 });
 
-function verifyCompany(user = 'owner', company = 'workfolio', expiresAt = Date.now() + 86400000) {
+function verifyCompany(user = 'owner', company = 'workfolio', expiresAt = Date.now() + 86400000, domain = 'workfolio.life') {
   sqlite.prepare('INSERT OR IGNORE INTO community_users (id, nickname, created_at) VALUES (?, ?, ?)').run(user, '테스트 동료', Date.now());
-  sqlite.prepare('INSERT OR REPLACE INTO community_company_verifications (user_id, company_id, email_hash, verified_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-    .run(user, company, `private-email-hash-${user}`, Date.now(), expiresAt);
+  sqlite.prepare('INSERT OR REPLACE INTO community_company_verifications (user_id, company_id, email_hash, verified_at, expires_at, domain) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(user, company, `private-email-hash-${user}`, Date.now(), expiresAt, domain);
 }
 
 test('company disclosure is opt-in and never leaks a private company through list or detail responses', async () => {
@@ -218,10 +218,12 @@ test('company disclosure is opt-in and never leaks a private company through lis
     assert.equal(response.status,201);
     const post = (await response.json()).post;
     assert.equal(post.companyName,null);
+    assert.equal(post.isAdminAuthor,false);
     assert.equal(sqlite.prepare('SELECT company_name FROM community_posts WHERE id = ?').get(post.id).company_name,null);
     for (const user of [null,'owner','visitor']) {
       const serialized = await (await list(user,post.id)).text();
       assert.equal(JSON.parse(serialized).post.companyName,null);
+      assert.equal(JSON.parse(serialized).post.isAdminAuthor,false);
       assert.doesNotMatch(serialized,/Workfolio|private-email-hash|company_id|email_hash|verified_at/);
     }
   }
@@ -237,14 +239,19 @@ test('public company names come from current server verification and stay as a p
   assert.equal(response.status,201);
   const post = (await response.json()).post;
   assert.equal(post.companyName,'Workfolio');
+  assert.equal(post.isAdminAuthor,true);
   sqlite.prepare('INSERT INTO community_companies (id,name) VALUES (?,?)').run('next-company','다음 회사');
   verifyCompany('owner','next-company');
   const next = await mutate({...draft,shareCompany:true});
-  assert.equal((await next.json()).post.companyName,'다음 회사');
+  const nextPost = (await next.json()).post;
+  assert.equal(nextPost.companyName,'다음 회사');
+  assert.equal(nextPost.isAdminAuthor,false);
   assert.equal((await (await list(null,post.id)).json()).post.companyName,'Workfolio');
   assert.equal((await (await list(null,earlierPrivate.id)).json()).post.companyName,null);
   sqlite.prepare('DELETE FROM community_company_verifications').run();
   assert.equal((await (await list(null,post.id)).json()).post.companyName,'Workfolio');
+  assert.equal((await (await list(null,post.id)).json()).post.isAdminAuthor,true);
+  assert.equal((await (await list(null,earlierPrivate.id)).json()).post.isAdminAuthor,false);
 });
 
 test('unverified, expired, and other-account company proofs cannot authorize a public company post', async () => {
@@ -258,4 +265,58 @@ test('unverified, expired, and other-account company proofs cannot authorize a p
   }
   assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM community_posts').get().n,0);
   assert.equal((await mutate({...draft,shareCompany:false})).status,201);
+});
+
+test('admin author badges require the exact verified domain and curated company, never the submitted role or company name', async () => {
+  sqlite.prepare('INSERT INTO community_companies (id, name) VALUES (?, ?)').run('lookalike-company', 'Workfolio');
+  for (const [company, domain, isAdminAuthor] of [
+    ['workfolio', 'workfolio.life', true],
+    ['workfolio', null, false],
+    ['workfolio', 'mail.workfolio.life', false],
+    ['workfolio', 'workfolio.life.evil.test', false],
+    ['workfolio', 'WORKFOLIO.LIFE', false],
+    ['lookalike-company', 'workfolio.life', false],
+    ['plax-neural-labs', 'letsplax.com', false],
+  ]) {
+    verifyCompany('owner', company, Date.now() + 86400000, domain);
+    const response = await mutate({...draft, shareCompany:true, isAdmin:true, isAdminAuthor:!isAdminAuthor, role:'admin', companyName:'관리자'});
+    assert.equal(response.status,201);
+    const post = (await response.json()).post;
+    assert.equal(post.isAdminAuthor,isAdminAuthor,`${company} / ${domain}`);
+    assert.equal(sqlite.prepare('SELECT is_admin_author FROM community_posts WHERE id = ?').get(post.id).is_admin_author,Number(isAdminAuthor));
+    assert.equal((await (await list(null,post.id)).json()).post.isAdminAuthor,isAdminAuthor);
+  }
+  verifyCompany('owner','workfolio',Date.now()-1,'workfolio.life');
+  assert.equal((await mutate({...draft, shareCompany:true, isAdminAuthor:true})).status,403);
+});
+
+test('private posts never disclose an admin badge, including forged flags and inconsistent stored snapshots', async () => {
+  verifyCompany();
+  for (const shareCompany of [undefined,false]) {
+    const response = await mutate({...draft,shareCompany,isAdmin:true,isAdminAuthor:true,role:'admin'});
+    assert.equal(response.status,201);
+    const post = (await response.json()).post;
+    assert.equal(post.companyName,null);
+    assert.equal(post.isAdminAuthor,false);
+    assert.equal(sqlite.prepare('SELECT is_admin_author FROM community_posts WHERE id = ?').get(post.id).is_admin_author,0);
+    sqlite.prepare('UPDATE community_posts SET is_admin_author = 1 WHERE id = ?').run(post.id);
+    assert.equal((await (await list(null,post.id)).json()).post.isAdminAuthor,false);
+  }
+  assert.ok((await (await list(null)).json()).posts.every(post=>post.isAdminAuthor===false));
+});
+
+test('admin display certification grants no extra deletion permissions or comment badge', async () => {
+  const visitorPost = (await (await mutate(draft,'visitor')).json()).post;
+  verifyCompany();
+  const adminPost = (await (await mutate({...draft,shareCompany:true})).json()).post;
+  assert.equal(adminPost.isAdminAuthor,true);
+  assert.equal((await mutate({action:'delete',postId:visitorPost.id,isAdmin:true,role:'admin'})).status,403);
+  assert.equal((await mutate({action:'delete',postId:adminPost.id},'visitor')).status,403);
+  const response = await mutate({action:'comment',postId:visitorPost.id,body:'관리자 표시와 무관한 일반 댓글입니다.',isAdmin:true,isAdminAuthor:true,role:'admin'});
+  assert.equal(response.status,201);
+  const comment = (await response.json()).comment;
+  assert.equal('isAdminAuthor' in comment,false);
+  assert.equal('isAdmin' in comment,false);
+  assert.equal((await mutate({action:'delete',postId:adminPost.id})).status,200);
+  assert.equal((await list(null,visitorPost.id)).status,200);
 });

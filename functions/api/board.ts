@@ -34,9 +34,10 @@ async function limitWrites(db: D1Database, userId: string): Promise<void> {
   `).bind(userId, Date.now()).first<{ attempts: number }>();
   if (!accepted) throw new BoardError("잠깐만요! 요청이 많아요. 1분 뒤 다시 시도해 주세요.", 429);
 }
-interface StoredPost { id: string; owner_id: string; title: string; body: string; category: Category; nickname: string; created_at: number; company_name: string | null }
+interface StoredPost { id: string; owner_id: string; title: string; body: string; category: Category; nickname: string; created_at: number; company_name: string | null; is_admin_author: number }
 function publicPost(row: StoredPost, userId: string | null): Post {
-  return { id: row.id, title: row.title, body: row.body, category: row.category, nickname: row.nickname, companyName: row.company_name, createdAt: row.created_at,
+  return { id: row.id, title: row.title, body: row.body, category: row.category, nickname: row.nickname, companyName: row.company_name,
+    isAdminAuthor: Boolean(row.company_name) && row.is_admin_author === 1, createdAt: row.created_at,
     sample: false, reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], commentCount: 0, mine: row.owner_id === userId };
 }
 async function enrich(db: D1Database, posts: Post[], userId: string | null): Promise<Post[]> {
@@ -92,8 +93,9 @@ export const onRequestPost: PagesFunction<CommunityAuthEnv> = async ({ request, 
       if (value.shareCompany) {
         // Snapshot only the company the author explicitly disclosed on this post.
         // The database checks verification at insertion; client-supplied names are never trusted.
-        const result = await db.prepare(`INSERT INTO community_posts (id, owner_id, title, body, category, nickname, created_at, company_name)
-          SELECT ?, ?, ?, ?, ?, ?, ?, c.name FROM community_company_verifications v
+        const result = await db.prepare(`INSERT INTO community_posts (id, owner_id, title, body, category, nickname, created_at, company_name, is_admin_author)
+          SELECT ?, ?, ?, ?, ?, ?, ?, c.name,
+          CASE WHEN v.company_id = 'workfolio' AND v.domain = 'workfolio.life' THEN 1 ELSE 0 END FROM community_company_verifications v
           JOIN community_companies c ON c.id = v.company_id WHERE v.user_id = ? AND v.expires_at > ?`)
           .bind(id, userId, value.title, value.body, value.category, value.nickname, now, userId, now).run();
         if (result.meta.changes !== 1) throw new BoardError("회사를 공개하려면 회사 이메일 인증을 완료해 주세요. 인증이 만료됐다면 다시 인증해 주세요.", 403);

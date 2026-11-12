@@ -18,3 +18,37 @@ body{letter-spacing:-.035em}.header{height:76px}.header-inner{max-width:1500px;p
 .remember-login{margin-top:20px;padding:13px 14px;background:#f1f5e9;border:1px solid #e1e8d7;border-radius:8px}.remember-login label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer}.remember-login input{width:16px;height:16px;accent-color:#385b35}.remember-login p{font-size:10px;line-height:1.7;color:#728164;margin-top:7px}.remember-login small{display:block;font-size:10px;color:#87957a;margin-top:5px}.login-modal .remember-login+.social-options{margin-top:14px}
 
 .company-modal{max-width:460px}.company-verification form{display:flex;flex-direction:column;gap:10px;margin-top:20px}.company-verification form>label{font-size:12px;font-weight:700;color:#405638}.company-verification input{width:100%;padding:12px 13px;border:1px solid #dbe3d1;border-radius:7px;background:#fff;font-size:14px;color:#354830}.company-verification input:focus{outline:2px solid #91ad6a;outline-offset:2px}.company-verification input:disabled{background:#f2f5ed}.company-verification button:disabled{opacity:.5;cursor:not-allowed}.company-verification .secondary{justify-content:center}.company-code-notice,.company-privacy,.company-help,.company-status{font-size:11px;line-height:1.8;color:#7d8c70}.company-code-notice{padding:11px 13px;background:#eef4e3;border-radius:7px}.company-code-notice strong{color:#42613a}.company-privacy{margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}.company-help{margin-top:9px;font-size:10px}.company-help a{text-decoration:underline}.company-verified{display:flex;flex-direction:column;gap:7px;background:#edf4df;border:1px solid #d5e4bc;border-radius:9px;padding:15px;margin-top:20px}.company-verified strong{font-size:16px;color:#355b33}.company-verified span{font-size:10px;color:#768568}.company-verified button{font-size:11px;text-decoration:underline;align-self:flex-start;margin-top:6px}.company-disclosure{padding:14px 15px;background:#f4f7ee;border:1px solid #e1e8d7;border-radius:9px;margin:16px 0 22px}.company-disclosure .company-share-option{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;cursor:pointer}.write-modal .company-disclosure .company-share-option>span{float:none;font-size:12px;font-weight:700;color:#405638}.company-share-option input{width:16px;height:16px;accent-color:#385b35}.company-share-option input:disabled{cursor:not-allowed}.company-disclosure p{font-size:10px;line-height:1.7;color:#7e8c71;margin-top:7px}.company-disclosure .company-author-preview{font-size:12px;color:#617454;padding:9px 10px;background:#fff;border:1px solid #e4eadc;border-radius:6px;margin-top:12px}.company-author-preview>span,.author-company{font-weight:650}.author-company{color:#587448}.author-separator{color:#a0aa96}.company-verify-link{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;font-weight:650;color:#486b3c;text-decoration:underline}.company-account-button{white-space:nowrap}@media(max-width:440px){.header-actions{gap:9px}.header .company-account-button{font-size:10px}.header .login-button{font-size:11px}.company-verification input{font-size:16px}.company-modal .modal-inside{padding:22px}.company-disclosure{padding:13px}}
+
+/* The mobile menu uses a native dialog so the background cannot intercept taps. */
+.mobile-nav-modal {
+  width: min(420px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: max(12px, env(safe-area-inset-top)) auto auto;
+  overscroll-behavior: contain;
+  background: #f8faf4;
+}
+.mobile-nav-modal.modal .modal-inside { padding: 16px 18px 20px; }
+.mobile-nav-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.mobile-nav-top h2 { font-size: 19px; }
+.mobile-nav-top .icon-btn { width: 44px; height: 44px; flex-shrink: 0; }
+.mobile-nav-modal .side-nav :is(button, a) { display: flex; align-items: center; min-height: 44px; padding: 10px 12px; font-size: 14px; }
+.mobile-nav-modal .side-divider { margin: 8px 0; }
+.mobile-nav-modal .board-label { padding: 2px 12px 5px; }
+.mobile-account-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #dfe7d4; }
+.mobile-account-actions button { display: flex; align-items: center; justify-content: flex-start; gap: 9px; min-height: 44px; padding: 10px 12px; border-radius: 8px; background: #edf3e4; font-size: 13px; text-align: left; }
+.feed-section:focus { outline: none; }
+@media (max-width: 760px) {
+  .header .mobile-menu { width: 44px; height: 44px; flex-shrink: 0; }
+  .header .login-button { min-height: 44px; min-width: 44px; justify-content: center; white-space: nowrap; }
+  .header-actions { flex-shrink: 0; }
+  .mobile-categories a { display: inline-flex; align-items: center; min-height: 44px; }
+  .feed-tools .sort-tabs { flex-shrink: 0; }
+  .feed-tools .sort-tabs button { min-height: 44px; }
+  .feed-tools .search { flex: 1; min-width: 0; max-width: 210px; min-height: 44px; }
+  .feed-tools .search input { min-width: 0; font-size: 16px; }
+  .mobile-compose { bottom: max(20px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 440px) {
+  .header-actions { gap: 6px; }
+  .header .company-account-button { display: none; }
+}

@@ -9,6 +9,7 @@ export interface Post {
   category: Category;
   nickname: string;
   companyName: string | null;
+  isAdminAuthor: boolean;
   createdAt: number;
   sample: boolean;
   reactions: Record<Reaction, number>;

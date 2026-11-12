@@ -1,5 +1,5 @@
 import { BOARD_PAGES, SITE_NAME, SITE_ORIGIN, boardPath, postPath } from '../../src/lib/community/seo';
-import { POST_COLUMNS, REAL_POSTS, escapeMarkup as esc, excerpt, htmlPage, pageNumber, readOnly, timeMarkup, unavailablePage,
+import { POST_COLUMNS, REAL_POSTS, companyAuthorMarkup, escapeMarkup as esc, excerpt, htmlPage, pageNumber, readOnly, timeMarkup, unavailablePage,
   type CommunitySeoEnv, type PublicPost } from '../_lib/community-seo';
 
 const PAGE_SIZE = 30;
@@ -21,7 +21,7 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
 <header><p class="reader-kicker">퇴근 후 게시판</p><h1 class="reader-title">${esc(heading)}</h1><p class="reader-description">${esc(board.description)}</p>
 <div class="reader-actions"><a class="reader-primary" href="/?board=${encodeURIComponent(board.slug)}">이 게시판에서 이야기하기</a><span class="reader-meta">실제 이용자 글 ${total?.count ?? 0}개</span></div></header>
 <section class="reader-post-list" aria-label="${esc(board.category)} 게시글">
-${posts.results.length ? posts.results.map(post => `<article class="reader-card reader-post-item"><h2><a href="${postPath(post.id)}">${esc(post.title)}</a></h2><p>${esc(excerpt(post.body, 170))}</p><div class="reader-meta"><span>${esc(post.company_name || '회사 비공개')} ·</span><span>${esc(post.nickname)}</span>${timeMarkup(post.created_at)}</div></article>`).join('') : '<div class="reader-card reader-empty"><h2>아직 올라온 글이 없어요</h2><p>이 게시판에는 아직 실제 이용자가 남긴 글이 없습니다. 오늘 있었던 작은 일부터 들려주세요.</p></div>'}
+${posts.results.length ? posts.results.map(post => `<article class="reader-card reader-post-item"><h2><a href="${postPath(post.id)}">${esc(post.title)}</a></h2><p>${esc(excerpt(post.body, 170))}</p><div class="reader-meta">${companyAuthorMarkup(post)}<span aria-hidden="true">·</span><span>${esc(post.nickname)}</span>${timeMarkup(post.created_at)}</div></article>`).join('') : '<div class="reader-card reader-empty"><h2>아직 올라온 글이 없어요</h2><p>이 게시판에는 아직 실제 이용자가 남긴 글이 없습니다. 오늘 있었던 작은 일부터 들려주세요.</p></div>'}
 </section>
 ${pages > 1 ? `<nav class="reader-pagination" aria-label="게시글 페이지">${page > 1 ? `<a rel="prev" href="${path(page - 1)}">← 이전 글</a>` : '<span></span>'}<span>${page} / ${pages} 페이지</span>${page < pages ? `<a rel="next" href="${path(page + 1)}">다음 글 →</a>` : '<span></span>'}</nav>` : ''}`;
     return htmlPage({ title: `${heading} | ${SITE_NAME}`, description, canonicalPath: path(page), body,

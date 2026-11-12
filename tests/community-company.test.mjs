@@ -49,7 +49,9 @@ beforeEach(() => {
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(readFileSync(new URL('migrations/0005_community_auth.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql', root), 'utf8'));
   sqlite.exec(readFileSync(new URL('migrations/0009_community_company_verification.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0011_community_admin_author.sql', root), 'utf8'));
   for (const id of ['owner', 'visitor', ...Array.from({ length: 6 }, (_, i) => `person-${i}`)]) sqlite.prepare('INSERT INTO community_users VALUES (?, ?, ?)').run(id, id, Date.now());
   env = { DB: adapter(sqlite), MAILGUN_API_KEY: 'not-a-real-key' };
   messages = [];
@@ -115,9 +117,10 @@ test('one-time code verifies only its signed-in requester and expires company pr
   assert.deepEqual(await (await me('visitor')).json(), { company: null });
   const response = await verify(code, 'owner', { company: { id: 'fake', name: '가짜 회사' } });
   assert.equal(response.status, 200);
-  const expected = { id: 'workfolio', name: 'Workfolio', verifiedAt: Date.now(), expiresAt: Date.now() + 90 * 86400000 };
+  const expected = { id: 'workfolio', name: 'Workfolio', isAdmin: true, verifiedAt: Date.now(), expiresAt: Date.now() + 90 * 86400000 };
   assert.deepEqual((await response.json()).company, expected);
   assert.deepEqual(await (await me()).json(), { company: expected });
+  assert.equal(sqlite.prepare('SELECT domain FROM community_company_verifications WHERE user_id = ?').get('owner').domain, 'workfolio.life');
   assert.equal(storedChallenges()[0].code_hash, null);
   assert.equal((await verify(code)).status, 400);
   const stored = JSON.stringify(sqlite.prepare('SELECT * FROM community_company_verifications').all());
@@ -260,6 +263,33 @@ test('reverification updates the current company without granting proof to anoth
   advance(1);
   await send('member@next.example');
   const response = await verify();
-  assert.equal((await response.json()).company.name, '새 회사');
+  const nextCompany = (await response.json()).company;
+  assert.equal(nextCompany.name, '새 회사');
+  assert.equal(nextCompany.isAdmin, false);
+  assert.equal(sqlite.prepare('SELECT domain FROM community_company_verifications WHERE user_id = ?').get('owner').domain, 'next.example');
   assert.deepEqual(await (await me('visitor')).json(), { company: null });
+});
+
+test('admin company status is computed from trusted company and exact verification domain, not a submitted flag or label', async () => {
+  sqlite.exec("INSERT INTO community_companies VALUES ('lookalike', 'Workfolio'); INSERT INTO community_company_domains VALUES ('other.example', 'lookalike'); INSERT INTO community_company_domains VALUES ('team.workfolio.life', 'workfolio');");
+  for (const [email, expectedAdmin, expectedDomain] of [
+    [' MEMBER@WORKFOLIO.LIFE ', true, 'workfolio.life'],
+    ['member@team.workfolio.life', false, 'team.workfolio.life'],
+    ['member@other.example', false, 'other.example'],
+  ]) {
+    assert.equal((await send(email)).status,200);
+    const response = await verify(lastCode(),'owner',{isAdmin:true,role:'admin',domain:'workfolio.life',companyId:'workfolio'});
+    assert.equal(response.status,200);
+    const verified = (await response.json()).company;
+    assert.equal(verified.isAdmin,expectedAdmin);
+    assert.equal(typeof verified.isAdmin,'boolean');
+    assert.equal(sqlite.prepare('SELECT domain FROM community_company_verifications WHERE user_id = ?').get('owner').domain,expectedDomain);
+    advance(1);
+  }
+  sqlite.prepare('UPDATE community_company_verifications SET company_id = ?, domain = NULL WHERE user_id = ?').run('workfolio','owner');
+  assert.equal((await (await me()).json()).company.isAdmin,false);
+  sqlite.prepare('UPDATE community_company_verifications SET company_id = ?, domain = ? WHERE user_id = ?').run('lookalike','workfolio.life','owner');
+  assert.equal((await (await me()).json()).company.isAdmin,false);
+  sqlite.prepare('UPDATE community_company_verifications SET company_id = ?, domain = ?, expires_at = ? WHERE user_id = ?').run('workfolio','workfolio.life',Date.now(),'owner');
+  assert.deepEqual(await (await me()).json(),{company:null});
 });

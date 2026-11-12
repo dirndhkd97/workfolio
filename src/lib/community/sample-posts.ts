@@ -42,4 +42,5 @@ export const SAMPLE_POSTS: Post[] = [
   commentCount: 0,
   mine: false,
   companyName: null,
+  isAdminAuthor: false,
 }));

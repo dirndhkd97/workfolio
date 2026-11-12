@@ -1,0 +1,21 @@
+.admin-author-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #c7d8bc;
+  border-radius: 5px;
+  background: #edf4e5;
+  color: #355c32;
+  padding: 2px 6px;
+  font-size: .95em;
+  font-weight: 750;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.company-verified strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}

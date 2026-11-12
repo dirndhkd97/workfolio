@@ -2,7 +2,7 @@ import { getCommunityIdentity, type CommunityAuthEnv } from './community-auth';
 import { BoardError, checkMutationRequest, readJsonBody } from '../../src/lib/community/domain';
 
 export interface CommunityCompanyEnv extends CommunityAuthEnv { MAILGUN_API_KEY?: string }
-export interface VerifiedCompany { id: string; name: string; verifiedAt: number; expiresAt: number }
+export interface VerifiedCompany { id: string; name: string; verifiedAt: number; expiresAt: number; isAdmin: boolean }
 const CODE_MS = 10 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const VERIFIED_MS = 90 * 24 * HOUR_MS;
@@ -40,8 +40,11 @@ function randomCode(): string {
 }
 
 export async function getVerifiedCompany(db: D1Database, userId: string, now = Date.now()): Promise<VerifiedCompany | null> {
-  return db.prepare('SELECT c.id, c.name, v.verified_at AS verifiedAt, v.expires_at AS expiresAt FROM community_company_verifications v JOIN community_companies c ON c.id = v.company_id WHERE v.user_id = ? AND v.expires_at > ?')
-    .bind(userId, now).first<VerifiedCompany>();
+  const row = await db.prepare(`SELECT c.id, c.name, v.verified_at AS verifiedAt, v.expires_at AS expiresAt,
+    CASE WHEN v.company_id = 'workfolio' AND v.domain = 'workfolio.life' THEN 1 ELSE 0 END AS isAdmin
+    FROM community_company_verifications v JOIN community_companies c ON c.id = v.company_id WHERE v.user_id = ? AND v.expires_at > ?`)
+    .bind(userId, now).first<Omit<VerifiedCompany, 'isAdmin'> & { isAdmin: number }>();
+  return row ? { ...row, isAdmin: row.isAdmin === 1 } : null;
 }
 
 export async function companyMe(request: Request, env: CommunityCompanyEnv): Promise<Response> {
@@ -122,9 +125,9 @@ export async function verifyCompanyCode(request: Request, env: CommunityCompanyE
         WHERE id = ? AND user_id = ? AND status = 'sent' AND code_hash = ? AND expires_at > ?
           AND EXISTS (SELECT 1 FROM community_company_domains d WHERE d.domain = community_company_challenges.domain AND d.company_id = community_company_challenges.company_id)`)
         .bind(claim, challenge.id, userId, challenge.code_hash, now),
-      env.DB.prepare(`INSERT INTO community_company_verifications (user_id, company_id, email_hash, verified_at, expires_at)
-        SELECT user_id, company_id, email_hash, ?, ? FROM community_company_challenges WHERE id = ? AND claim_token = ? AND status = 'used'
-        ON CONFLICT(user_id) DO UPDATE SET company_id = excluded.company_id, email_hash = excluded.email_hash, verified_at = excluded.verified_at, expires_at = excluded.expires_at`)
+      env.DB.prepare(`INSERT INTO community_company_verifications (user_id, company_id, email_hash, verified_at, expires_at, domain)
+        SELECT user_id, company_id, email_hash, ?, ?, domain FROM community_company_challenges WHERE id = ? AND claim_token = ? AND status = 'used'
+        ON CONFLICT(user_id) DO UPDATE SET company_id = excluded.company_id, email_hash = excluded.email_hash, verified_at = excluded.verified_at, expires_at = excluded.expires_at, domain = excluded.domain`)
         .bind(now, now + VERIFIED_MS, challenge.id, claim),
     ]);
     if (results[1].meta.changes !== 1 || results[2].meta.changes !== 1) throw new BoardError('이미 사용되었거나 변경된 인증 요청이에요. 새 코드를 받아 주세요.', 409);

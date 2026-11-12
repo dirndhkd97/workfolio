@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { CompanyLabel } from "./CompanyLabel";
 
-export type VerifiedCompany = { id: string; name: string; verifiedAt: number; expiresAt: number };
+export type VerifiedCompany = { id: string; name: string; verifiedAt: number; expiresAt: number; isAdmin: boolean };
 type Props = { company: VerifiedCompany | null; onVerified: (company: VerifiedCompany) => void; onAuthExpired: () => void };
 
 export function CompanyVerification({ company, onVerified, onAuthExpired }: Props) {
@@ -40,7 +41,7 @@ export function CompanyVerification({ company, onVerified, onAuthExpired }: Prop
   return <div className="company-verification">
     <h2>회사 이메일 인증</h2>
     <p className="modal-subtitle">회사 이메일로 받은 코드를 확인해요.<br />인증한 회사명은 글마다 공개 여부를 선택할 수 있어요.</p>
-    {company && <div className="company-verified"><strong>{company.name}</strong><span>이메일 인증 완료 · {new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(company.expiresAt)}까지</span>{!editing && <button type="button" onClick={() => setEditing(true)}>다른 회사 인증 / 다시 인증</button>}</div>}
+    {company && <div className="company-verified"><strong>{company.name}{company.isAdmin && <CompanyLabel name={company.name} isAdmin />}</strong><span>이메일 인증 완료 · {new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(company.expiresAt)}까지</span>{company.isAdmin && <p>회사 공개를 선택한 글에는 ‘관리자’로 표시돼요.</p>}{!editing && <button type="button" onClick={() => setEditing(true)}>다른 회사 인증 / 다시 인증</button>}</div>}
     {editing && <>
       <form onSubmit={event => void submit(event, "send-code")}>
         <label htmlFor="company-email">회사 이메일</label>

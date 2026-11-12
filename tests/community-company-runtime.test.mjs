@@ -42,7 +42,7 @@ before(async () => {
     },
   });
   db = await runtime.getD1Database('DB');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
     const statements = readFileSync(new URL(`migrations/${file}`, root), 'utf8').replace(/--[^\n]*/g, '').split(';').map(sql => sql.trim()).filter(Boolean);
     await db.batch(statements.map(sql => db.prepare(sql)));
   }
@@ -76,34 +76,44 @@ test('real D1 verifies company mailbox, enforces opt-in disclosure, and preserve
   assert.equal(beforeProof.status, 201);
   const privateBefore = (await beforeProof.json()).post;
   assert.equal(privateBefore.companyName, null);
+  assert.equal(privateBefore.isAdminAuthor, false);
 
   const sent = await fetchRoute('/api/community-company/send-code', { email: 'member@workfolio.life' });
   assert.equal(sent.status, 200);
   assert.deepEqual((await sent.json()).company, { id: 'workfolio', name: 'Workfolio' });
   assert.equal(messages.length, 1);
   const code = /인증코드: (\d{6})/.exec(messages[0].text)[1];
-  const verified = await fetchRoute('/api/community-company/verify-code', { code, companyName: '가짜 회사' });
+  const verified = await fetchRoute('/api/community-company/verify-code', { code, companyName: '가짜 회사', isAdmin: false, domain: 'evil.test' });
   assert.equal(verified.status, 200);
-  assert.equal((await verified.json()).company.name, 'Workfolio');
+  const verifiedCompany = (await verified.json()).company;
+  assert.equal(verifiedCompany.name, 'Workfolio');
+  assert.equal(verifiedCompany.isAdmin, true);
+  assert.equal((await db.prepare('SELECT domain FROM community_company_verifications WHERE user_id = ?').bind('runtime-member').first()).domain, 'workfolio.life');
   assert.equal((await fetchRoute('/api/community-company/verify-code', { code })).status, 400);
   assert.equal((await (await fetchRoute('/api/community-company/me')).json()).company.name, 'Workfolio');
 
-  const published = await fetchRoute('/api/board', { ...draft, shareCompany: true, companyName: '가짜 회사' });
+  const published = await fetchRoute('/api/board', { ...draft, shareCompany: true, companyName: '가짜 회사', isAdminAuthor: false });
   assert.equal(published.status, 201);
   const publicPost = (await published.json()).post;
   assert.equal(publicPost.companyName, 'Workfolio');
-  const hidden = await fetchRoute('/api/board', { ...draft, shareCompany: false, companyName: '가짜 회사' });
+  assert.equal(publicPost.isAdminAuthor, true);
+  const hidden = await fetchRoute('/api/board', { ...draft, shareCompany: false, companyName: '가짜 회사', isAdminAuthor: true, role: 'admin' });
   assert.equal(hidden.status, 201);
   const privateAfter = (await hidden.json()).post;
   assert.equal(privateAfter.companyName, null);
+  assert.equal(privateAfter.isAdminAuthor, false);
 
   const feed = await (await fetchRoute('/api/board', undefined, false)).json();
   for (const id of [privateBefore.id, privateAfter.id]) {
     assert.equal(feed.posts.find(post => post.id === id).companyName, null);
+    assert.equal(feed.posts.find(post => post.id === id).isAdminAuthor, false);
     const detail = await (await fetchRoute(`/api/board?id=${id}`, undefined, false)).json();
     assert.equal(detail.post.companyName, null);
+    assert.equal(detail.post.isAdminAuthor, false);
   }
   assert.equal(feed.posts.find(post => post.id === publicPost.id).companyName, 'Workfolio');
+  assert.equal(feed.posts.find(post => post.id === publicPost.id).isAdminAuthor, true);
+  assert.ok(feed.posts.filter(post => post.sample).every(post => post.isAdminAuthor === false));
   assert.equal(JSON.stringify(feed).includes('member@workfolio.life'), false);
   assert.equal(JSON.stringify(feed).includes('email_hash'), false);
 
@@ -111,6 +121,7 @@ test('real D1 verifies company mailbox, enforces opt-in disclosure, and preserve
   assert.equal((await fetchRoute('/api/board', { ...draft, shareCompany: true })).status, 403);
   assert.deepEqual(await (await fetchRoute('/api/community-company/me')).json(), { company: null });
   assert.equal((await (await fetchRoute(`/api/board?id=${publicPost.id}`, undefined, false)).json()).post.companyName, 'Workfolio');
+  assert.equal((await (await fetchRoute(`/api/board?id=${publicPost.id}`, undefined, false)).json()).post.isAdminAuthor, true);
   await db.prepare('UPDATE community_sessions SET expires_at = ?').bind(Date.now() - 1).run();
   assert.equal((await fetchRoute('/api/community-company/me')).status, 401);
   assert.equal((await fetchRoute('/api/board', draft)).status, 401);

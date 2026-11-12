@@ -8,11 +8,12 @@ export interface PublicPost {
   category: string;
   nickname: string;
   company_name: string | null;
+  is_admin_author: number;
   created_at: number;
 }
 export interface PublicComment { id: string; body: string; nickname: string; created_at: number }
 
-export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, created_at';
+export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, is_admin_author, created_at';
 // Stored community posts use UUIDs; sample-* belongs to the separate editorial examples.
 export const REAL_POSTS = "id NOT LIKE 'sample-%'";
 export const SITEMAP_SIZE = 1000;
@@ -22,6 +23,12 @@ export function escapeMarkup(value: unknown): string {
   return String(value).replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[character]!);
+}
+
+export function companyAuthorMarkup(post: Pick<PublicPost, 'company_name' | 'is_admin_author'>): string {
+  const isAdmin = Boolean(post.company_name) && post.is_admin_author === 1;
+  const label = isAdmin ? '관리자' : post.company_name || '회사 비공개';
+  return `<span${isAdmin ? ' class="admin-author-badge" aria-label="Workfolio 인증 관리자"' : ''}>${escapeMarkup(label)}</span>`;
 }
 
 export function jsonLd(value: unknown): string {

@@ -10,12 +10,26 @@ const TABLES = ['community_users', 'community_accounts', 'community_sessions', '
 const REQUIRED = {
   community_sessions: ['token_hash', 'user_id', 'created_at', 'expires_at', 'remember_me'],
   community_oauth_flows: ['state_hash', 'provider', 'browser_hash', 'nonce', 'code_verifier', 'redirect_uri', 'return_to', 'expires_at', 'remember_me'],
-  community_posts: ['id', 'owner_id', 'title', 'body', 'category', 'nickname', 'created_at', 'company_name'],
+  community_posts: ['id', 'owner_id', 'title', 'body', 'category', 'nickname', 'created_at', 'company_name', 'is_admin_author'],
   community_companies: ['id', 'name'],
   community_company_domains: ['domain', 'company_id'],
-  community_company_verifications: ['user_id', 'company_id', 'email_hash', 'verified_at', 'expires_at'],
+  community_company_verifications: ['user_id', 'company_id', 'email_hash', 'verified_at', 'expires_at', 'domain'],
   community_company_challenges: ['id', 'user_id', 'company_id', 'domain', 'email_hash', 'code_hash', 'created_at', 'expires_at', 'attempts', 'status', 'claim_token'],
 };
+// This is the only data UPDATE accepted alongside the additive schema migrations.
+const VERIFIED_DOMAIN_BACKFILL = `WITH proven_company_domains AS (
+  SELECT v.user_id, MIN(c.domain) AS domain
+  FROM community_company_verifications AS v
+  JOIN community_company_challenges AS c
+    ON c.user_id = v.user_id AND c.company_id = v.company_id AND c.email_hash = v.email_hash
+  WHERE v.domain IS NULL AND c.status = 'used'
+    AND c.created_at <= v.verified_at AND v.verified_at < c.expires_at
+  GROUP BY v.user_id
+  HAVING COUNT(DISTINCT c.domain) = 1
+)
+UPDATE community_company_verifications
+SET domain = (SELECT domain FROM proven_company_domains WHERE user_id = community_company_verifications.user_id)
+WHERE domain IS NULL AND user_id IN (SELECT user_id FROM proven_company_domains)`;
 
 // These files contain ordinary SQL and line comments. Preserve semicolons inside quoted names.
 export function splitSql(sql) {
@@ -70,15 +84,19 @@ export async function inspectDatabase(query) {
 
 export async function applySchema(query, readMigration = name => readFile(`migrations/${name}`, 'utf8')) {
   for (const name of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql']) await query(await readMigration(name));
-  for (const name of ['0008_community_session_persistence.sql', '0010_community_post_company.sql']) {
+  await query(repeatableCompanySql(await readMigration('0009_community_company_verification.sql')).join(';\n'));
+  for (const name of ['0008_community_session_persistence.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
     for (const statement of splitSql(await readMigration(name))) {
-      const match = /^ALTER TABLE (community_sessions|community_oauth_flows|community_posts) ADD COLUMN (remember_me|company_name)\b/.exec(statement);
+      if (name === '0011_community_admin_author.sql' && statement.replace(/\s+/g, ' ') === VERIFIED_DOMAIN_BACKFILL.replace(/\s+/g, ' ')) {
+        await query(statement);
+        continue;
+      }
+      const match = /^ALTER TABLE (community_sessions|community_oauth_flows|community_posts|community_company_verifications) ADD COLUMN (remember_me|company_name|is_admin_author|domain)\b/.exec(statement);
       if (!match) throw new Error('Unexpected statement in additive migration.');
       const columns = (await query(`PRAGMA table_info(${match[1]})`))[0].results;
       if (!columns.some(row => row.name === match[2])) await query(statement);
     }
   }
-  await query(repeatableCompanySql(await readMigration('0009_community_company_verification.sql')).join(';\n'));
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);
     if (required.some(column => !columns.includes(column))) throw new Error(`Required columns missing in ${table}.`);

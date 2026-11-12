@@ -1,4 +1,4 @@
-// Exercise the public HTML/XML routes against only the original community schema.
+// Exercise the public HTML/XML routes without reading private account or session data.
 import test, { after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -35,8 +35,9 @@ let env;
 beforeEach(() => {
   sqlite?.close();
   sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql', root), 'utf8'));
-  sqlite.exec(readFileSync(new URL('migrations/0010_community_post_company.sql', root), 'utf8'));
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
+    sqlite.exec(readFileSync(new URL(`migrations/${file}`, root), 'utf8'));
+  }
   statements = [];
   function prepare(sql, bindings = []) {
     assert.match(sql, /^SELECT\b/i, 'SEO endpoints must only read D1');
@@ -72,6 +73,37 @@ test('reader pages display only the per-post company snapshot and escape the pub
   const privateHtml = await (await request(post, '/posts/private-company', { id: 'private-company' })).text();
   assert.match(privateHtml, /회사 비공개/);
   assert.doesNotMatch(privateHtml, /플랙스뉴럴랩스|email_hash|company_id/);
+});
+
+test('article and board readers show 관리자 only for a public admin snapshot, never from the company name alone', async () => {
+  const cases = [
+    ['public-admin', 'Workfolio', 1, '관리자'],
+    ['private-admin', null, 1, '회사 비공개'],
+    ['ordinary-workfolio', 'Workfolio', 0, 'Workfolio'],
+    ['ordinary-company', '플랙스뉴럴랩스', 0, '플랙스뉴럴랩스'],
+  ];
+  for (const [id, companyName, admin, label] of cases) {
+    seed(id);
+    sqlite.prepare('UPDATE community_posts SET company_name = ?, is_admin_author = ? WHERE id = ?').run(companyName,admin,id);
+    const html = await (await request(post, `/posts/${id}`, {id})).text();
+    const author = html.match(/<div class="reader-meta">([\s\S]*?)<\/div>/)?.[1];
+    assert.ok(author, id);
+    assert.ok(author.includes(label), id);
+    if (label !== '관리자') assert.doesNotMatch(author,/관리자/);
+    else assert.doesNotMatch(author,/>Workfolio(?:\s|·|<)/);
+    assert.doesNotMatch(html,/private-owner-never-publish|workfolio\.life<\/span>|email_hash|company_id/);
+  }
+  const html = await (await request(board, '/boards/office-people', {slug:'office-people'})).text();
+  for (const [id, , , label] of cases) {
+    const card = [...html.matchAll(/<article class="reader-card reader-post-item">([\s\S]*?)<\/article>/g)].find(match=>match[1].includes(`/posts/${id}"`))?.[1];
+    assert.ok(card,id);
+    assert.ok(card.includes(label),id);
+    if (label !== '관리자') assert.doesNotMatch(card,/관리자/);
+    else assert.doesNotMatch(card,/>Workfolio(?:\s|·|<)/);
+  }
+  const sample = await (await request(post,'/posts/sample-01',{id:'sample-01'})).text();
+  assert.doesNotMatch(sample,/관리자/);
+  assert.ok(statements.every(sql=>!sql.includes('community_company_verifications')&&!sql.includes('community_users')));
 });
 
 test('post HTML contains the complete escaped discussion, metadata and real comments without private identities', async () => {
