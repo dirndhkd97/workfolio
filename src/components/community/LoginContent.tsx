@@ -52,6 +52,11 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
         로그인 없이 둘러보기 <span aria-hidden="true">→</span>
       </button>
       <p className="login-note">로그인한 계정 정보는 게시글에 공개되지 않아요.<br />게시판에서는 직접 정한 별명으로 이야기해요.</p>
+      <nav className="community-policy-links login-policy-links" aria-label="로그인 이용 안내">
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">개인정보처리방침</a>
+        <a href="/terms" target="_blank" rel="noopener noreferrer">이용약관</a>
+        <a href="mailto:contact@workfolio.life">문의</a>
+      </nav>
     </>
   );
 }
