@@ -17,6 +17,7 @@ for (const [source, target] of [
   ['functions/posts/[id].ts', 'post.mjs'],
   ['functions/boards/[slug].ts', 'board.mjs'],
   ['functions/sitemap.xml.ts', 'index.mjs'],
+  ['functions/sitemap-pages.xml.ts', 'pages-sitemap.mjs'],
   ['functions/sitemap-posts.xml.ts', 'sitemap.mjs'],
 ]) {
   const compiled = stripTypeScriptTypes(readFileSync(new URL(source, root), 'utf8'))
@@ -28,8 +29,8 @@ for (const [source, target] of [
   writeFileSync(join(directory, target), compiled);
 }
 const load = (name) => import(pathToFileURL(join(directory, name)).href);
-const [{ onRequest: post }, { onRequest: board }, { onRequest: index }, { onRequest: sitemap }, helpers, metadata] =
-  await Promise.all(['post.mjs', 'board.mjs', 'index.mjs', 'sitemap.mjs', 'helper.mjs', 'seo.mjs'].map(load));
+const [{ onRequest: post }, { onRequest: board }, { onRequest: index }, { onRequest: sitemap }, { onRequest: pagesSitemap }, helpers, metadata] =
+  await Promise.all(['post.mjs', 'board.mjs', 'index.mjs', 'sitemap.mjs', 'pages-sitemap.mjs', 'helper.mjs', 'seo.mjs'].map(load));
 
 let sqlite;
 let statements;
@@ -174,7 +175,7 @@ test('missing pages return 404 while D1 errors return retryable noindex 503 with
 
 test('all reader endpoints reject mutations before accessing D1 and support empty HEAD responses', async () => {
   seed('head-post');
-  for (const [route, path, params] of [[post, '/posts/head-post', { id: 'head-post' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}]]) {
+  for (const [route, path, params] of [[post, '/posts/head-post', { id: 'head-post' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}], [pagesSitemap, '/sitemap-pages.xml', {}]]) {
     const before = statements.length;
     const rejected = await request(route, path, params, 'POST');
     assert.equal(rejected.status, 405);
@@ -217,11 +218,35 @@ test('an empty board retains its own introduction and honestly reports no user p
   assert.doesNotMatch(html, /sample-|DiscussionForumPosting/);
 });
 
+test('the explicit pages sitemap serves exactly the ten public pages without accessing D1, including HEAD', async () => {
+  env = { get DB() { throw new Error('The static pages sitemap must not access D1'); } };
+  const expectedPaths = [
+    '/', '/privacy/', '/terms/', '/studio/',
+    '/boards/brain-off', '/boards/salary-lupin', '/boards/office-people',
+    '/boards/funny-mistakes', '/boards/absurd-moments', '/boards/daily-life',
+  ];
+  const response = await request(pagesSitemap, '/sitemap-pages.xml');
+  const xml = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Content-Type'), 'application/xml; charset=utf-8');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(response.headers.get('Set-Cookie'), null);
+  assert.match(xml, /^<\?xml version="1.0" encoding="UTF-8"\?><urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);
+  assert.deepEqual(locations(xml).sort(), expectedPaths.map(path => 'https://workfolio.life' + path).sort());
+  assert.equal(new Set(locations(xml)).size, 10);
+  assert.deepEqual([...metadata.STATIC_SITEMAP_PATHS].sort(), expectedPaths.sort());
+  const head = await request(pagesSitemap, '/sitemap-pages.xml', {}, 'HEAD');
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('Content-Type'), response.headers.get('Content-Type'));
+  assert.equal(await head.text(), '');
+  assert.equal(statements.length, 0);
+});
+
 test('sitemaps include each real post exactly once in 1000-post chunks and reflect deletion', async () => {
   for (let number = 1; number <= 1001; number++) seed(`post-${String(number).padStart(4, '0')}`, { createdAt: createdAt + number });
   seed('sample-stored');
   const indexXml = await (await request(index, '/sitemap.xml')).text();
-  assert.deepEqual(locations(indexXml), ['https://workfolio.life/sitemap-0.xml', 'https://workfolio.life/sitemap-posts.xml?page=1', 'https://workfolio.life/sitemap-posts.xml?page=2']);
+  assert.deepEqual(locations(indexXml), ['https://workfolio.life/sitemap-pages.xml', 'https://workfolio.life/sitemap-posts.xml?page=1', 'https://workfolio.life/sitemap-posts.xml?page=2']);
   const first = locations(await (await request(sitemap, '/sitemap-posts.xml?page=1')).text());
   const second = locations(await (await request(sitemap, '/sitemap-posts.xml?page=2')).text());
   assert.equal(first.length, 1000);
@@ -239,7 +264,7 @@ test('sitemaps include each real post exactly once in 1000-post chunks and refle
 });
 
 test('empty and invalid sitemap pages remain well formed, and markup helpers escape HTML, XML and JSON-LD', async () => {
-  assert.deepEqual(locations(await (await request(index, '/sitemap.xml')).text()), ['https://workfolio.life/sitemap-0.xml']);
+  assert.deepEqual(locations(await (await request(index, '/sitemap.xml')).text()), ['https://workfolio.life/sitemap-pages.xml']);
   assert.match(await (await request(sitemap, '/sitemap-posts.xml?page=1')).text(), /<urlset[^>]*><\/urlset>/);
   for (const query of ['?page=0', '?page=01', '?page=bad', '?page=1&page=1', '?page=2']) {
     assert.equal((await request(sitemap, '/sitemap-posts.xml' + query)).status, 404);

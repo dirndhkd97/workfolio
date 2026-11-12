@@ -27,6 +27,7 @@
     "functions/boards/[slug].ts",
     "functions/posts/[id].ts",
     "functions/sitemap.xml.ts",
+    "functions/sitemap-pages.xml.ts",
     "functions/sitemap-posts.xml.ts",
     "functions/_lib/community-company.ts",
     "functions/api/community-company/**/*",

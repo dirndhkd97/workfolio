@@ -16,5 +16,10 @@ export const BOARD_PAGES: { slug: string; category: Category; title: string; des
 ];
 
 export const boardPath = (slug: string) => `/boards/${slug}`;
+// Shared by the generated compatibility sitemap and the explicit Pages endpoint.
+export const STATIC_SITEMAP_PATHS = [
+  '/', '/privacy/', '/terms/', '/studio/',
+  ...BOARD_PAGES.map(board => boardPath(board.slug)),
+];
 export const postPath = (id: string) => `/posts/${encodeURIComponent(id)}`;
 export const boardForCategory = (category: string) => BOARD_PAGES.find(board => board.category === category);
