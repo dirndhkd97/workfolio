@@ -53,6 +53,7 @@ beforeEach(() => {
     sqlite.exec(schema);
     sqlite.exec(schema); // Deployment applies only idempotent schema additions.
   }
+  sqlite.exec(readFileSync(new URL('migrations/0008_community_session_persistence.sql', root), 'utf8'));
   env = { DB: adapter(sqlite), KAKAO_CLIENT_ID: 'test-primary-rest-key', KAKAO_CLIENT_SECRET: 'test-client-secret' };
   networkCalls = [];
   globalThis.fetch = async (url) => {
@@ -66,7 +67,7 @@ after(() => { sqlite?.close(); globalThis.fetch = originalFetch; rmSync(director
 function seed(provider = 'kakao', subject = '12345', user = 'old-user', createdAt = Date.now() - 10000) {
   sqlite.prepare('INSERT INTO community_users VALUES (?, ?, ?)').run(user, '퇴근러테스트', createdAt);
   sqlite.prepare('INSERT INTO community_accounts VALUES (?, ?, ?, ?)').run(provider, subject, user, createdAt);
-  sqlite.prepare('INSERT INTO community_sessions VALUES (?, ?, ?, ?)').run(`session-${user}`, user, createdAt, Date.now() + 60000);
+  sqlite.prepare('INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(`session-${user}`, user, createdAt, Date.now() + 60000);
 }
 function count(table) { return sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n; }
 function eventBody(subject = '12345') { return { [unlink]: { subject: { subject_type: 'iss-sub', iss: issuer, sub: subject }, reason: 'UNLINK_FROM_APPS' } }; }
@@ -99,7 +100,7 @@ test('valid SET revokes every matched session and provider link, while preservin
   seed();
   seed('naver', '12345', 'naver-user');
   seed('kakao', '67890', 'other-kakao-user');
-  sqlite.prepare('INSERT INTO community_sessions VALUES (?, ?, ?, ?)').run('second-session', 'old-user', Date.now(), Date.now() + 60000);
+  sqlite.prepare('INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run('second-session', 'old-user', Date.now(), Date.now() + 60000);
   sqlite.prepare('INSERT INTO community_posts VALUES (?, ?, ?, ?, ?, ?, ?)').run('post', 'old-user', 'title', 'body', 'free', '퇴근러테스트', Date.now());
   sqlite.prepare('INSERT INTO community_comments VALUES (?, ?, ?, ?, ?, ?)').run('comment', 'post', 'old-user', 'comment', '퇴근러테스트', Date.now());
   const response = await deliver(await signed());

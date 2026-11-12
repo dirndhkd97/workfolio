@@ -41,4 +41,5 @@ export const SAMPLE_POSTS: Post[] = [
   myReactions: [],
   commentCount: 0,
   mine: false,
+  companyName: null,
 }));

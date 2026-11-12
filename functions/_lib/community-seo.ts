@@ -7,11 +7,12 @@ export interface PublicPost {
   body: string;
   category: string;
   nickname: string;
+  company_name: string | null;
   created_at: number;
 }
 export interface PublicComment { id: string; body: string; nickname: string; created_at: number }
 
-export const POST_COLUMNS = 'id, title, body, category, nickname, created_at';
+export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, created_at';
 // Stored community posts use UUIDs; sample-* belongs to the separate editorial examples.
 export const REAL_POSTS = "id NOT LIKE 'sample-%'";
 export const SITEMAP_SIZE = 1000;

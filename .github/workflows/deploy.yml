@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      preflight_only:
+        description: Check production configuration and database without writes or deployment
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: workfolio-production
@@ -25,25 +31,42 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        if: ${{ !inputs.preflight_only }}
         run: npm ci
 
+      - name: Check production readiness without writes
+        run: node scripts/release-community.mjs --preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ae40d286be880d4faf549a14530875dc
+
       - name: Verify community permissions and authentication
+        if: ${{ !inputs.preflight_only }}
         run: |
           npm run check:community
           npm run test:community
 
       - name: Build
+        if: ${{ !inputs.preflight_only }}
         run: npm run build
 
-      - name: Apply additive community schema
-        run: |
-          npx wrangler d1 execute DB --remote --file migrations/0005_community_auth.sql
-          npx wrangler d1 execute DB --remote --file migrations/0006_community_board.sql
-          npx wrangler d1 execute DB --remote --file migrations/0007_community_kakao_events.sql
+      - name: Apply additive schema and reviewed company registry
+        if: ${{ !inputs.preflight_only }}
+        run: node scripts/release-community.mjs --apply
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ae40d286be880d4faf549a14530875dc
 
       - name: Deploy to Cloudflare Pages
+        if: ${{ !inputs.preflight_only }}
         run: npx wrangler pages deploy dist --project-name workfolio --branch main
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Save release audit metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: community-release-audit
+          path: work/release/*.json
+          if-no-files-found: ignore

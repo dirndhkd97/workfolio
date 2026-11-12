@@ -10,7 +10,7 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
     const sample = SAMPLE_POSTS.find(post => post.id === id);
     const post: PublicPost | null = sample ? {
       id: sample.id, title: sample.title, body: sample.body, category: sample.category,
-      nickname: sample.nickname, created_at: sample.createdAt,
+      nickname: sample.nickname, company_name: null, created_at: sample.createdAt,
     } : await env.DB.prepare(`SELECT ${POST_COLUMNS} FROM community_posts WHERE id = ?`).bind(id).first<PublicPost>();
     if (!post) return unavailablePage(404);
     const [comments, commentTotal, reactions] = await Promise.all([
@@ -37,7 +37,7 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
 <article class="reader-card">
 <p class="reader-kicker">${esc(post.category)}${sample ? ' · 가상 예시' : ''}</p>
 <h1 class="reader-title">${esc(post.title)}</h1>
-<div class="reader-meta"><span>${esc(post.nickname)}</span>${sample ? '<span>편집용 가상 이야기</span>' : timeMarkup(post.created_at)}</div>
+<div class="reader-meta">${sample ? '' : `<span>${esc(post.company_name || '회사 비공개')} ·</span>`}<span>${esc(post.nickname)}</span>${sample ? '<span>편집용 가상 이야기</span>' : timeMarkup(post.created_at)}</div>
 ${sample ? '<p class="reader-notice">커뮤니티 이용 방법을 보여주는 가상 예시입니다. 실제 이용자가 작성한 사연이 아닙니다.</p>' : ''}
 <p class="reader-body">${esc(post.body)}</p>
 <div class="reader-stats"><span>공감 ${reactions?.count ?? 0}</span><span>댓글 ${count}</span></div>

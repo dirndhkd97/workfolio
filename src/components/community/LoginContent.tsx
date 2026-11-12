@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export type LoginProvider = { id: string; label: string; configured: boolean };
 
 const providers = [
@@ -16,12 +18,18 @@ type Props = {
 };
 
 export function LoginContent({ onClose, providers: availableProviders, loading, error, onRetry, returnTo }: Props) {
+  const [rememberMe, setRememberMe] = useState(true);
   return (
     <>
       <div className="login-intro">
         <span className="eyebrow">퇴근했으면, 우리 편</span>
         <h2>이제 같이 떠들어요.</h2>
         <p>글쓰기·댓글·공감은 로그인하고 함께해요.<br />읽기는 로그인 없이도 자유롭게.</p>
+      </div>
+      <div className="remember-login">
+        <label><input type="checkbox" checked={rememberMe} onChange={event => setRememberMe(event.target.checked)} aria-describedby="remember-login-description" /><span>로그인 유지</span></label>
+        <p id="remember-login-description">{rememberMe ? "브라우저를 닫아도 유지돼요. 로그인 유지 기간은 14일이며, 이용 중에는 주기적으로 갱신돼요." : "브라우저를 닫거나 12시간이 지나면 다시 로그인해요."}</p>
+        <small>공용 기기에서는 선택을 해제해 주세요.</small>
       </div>
       <div className="social-options" aria-label="소셜 로그인">
         {providers.map((provider) => {
@@ -36,7 +44,7 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
           return configured ? <a
             key={provider.id}
             className={`social-provider ${provider.id}`}
-            href={`/api/community-auth/${provider.id}?return_to=${encodeURIComponent(returnTo)}`}
+            href={`/api/community-auth/${provider.id}?return_to=${encodeURIComponent(returnTo)}&remember_me=${rememberMe ? "1" : "0"}`}
             aria-label={`${provider.name}로 로그인`}
           >{content}</a> : <button key={provider.id} type="button" className={`social-provider ${provider.id}`} disabled aria-label={`${provider.name} 로그인 — ${loading ? "연결 확인 중" : "준비 중"}`}>{content}</button>;
         })}

@@ -36,6 +36,7 @@ beforeEach(() => {
   sqlite?.close();
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0010_community_post_company.sql', root), 'utf8'));
   statements = [];
   function prepare(sql, bindings = []) {
     assert.match(sql, /^SELECT\b/i, 'SEO endpoints must only read D1');
@@ -61,6 +62,17 @@ const request = (route, path, params = {}, method = 'GET') => route({ env, param
   request: new Request('https://workfolio.life' + path, { method, headers: { Cookie: '__Host-community_session=ignored-session', 'oai-authenticated-user-id': 'private-owner-never-publish' } }),
 });
 const locations = (xml) => [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map(match => match[1]);
+
+test('reader pages display only the per-post company snapshot and escape the public label', async () => {
+  seed('public-company');
+  seed('private-company');
+  sqlite.prepare('UPDATE community_posts SET company_name = ? WHERE id = ?').run('플랙스뉴럴랩스 <회사>', 'public-company');
+  const publicHtml = await (await request(post, '/posts/public-company', { id: 'public-company' })).text();
+  assert.match(publicHtml, /플랙스뉴럴랩스 &lt;회사&gt;/);
+  const privateHtml = await (await request(post, '/posts/private-company', { id: 'private-company' })).text();
+  assert.match(privateHtml, /회사 비공개/);
+  assert.doesNotMatch(privateHtml, /플랙스뉴럴랩스|email_hash|company_id/);
+});
 
 test('post HTML contains the complete escaped discussion, metadata and real comments without private identities', async () => {
   const title = '회의 <img src=x onerror="alert(1)"> & 퇴근';

@@ -12,3 +12,5 @@ APPLE_CLIENT_SECRET=
 APPLE_TEAM_ID=
 APPLE_KEY_ID=
 APPLE_PRIVATE_KEY=
+# Company email verification uses the existing verified workfolio.life Mailgun sender.
+MAILGUN_API_KEY=

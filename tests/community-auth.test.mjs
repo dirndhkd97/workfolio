@@ -48,6 +48,7 @@ beforeEach(() => {
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(readFileSync(new URL('migrations/0005_community_auth.sql', root), 'utf8'));
   sqlite.exec(readFileSync(new URL('migrations/0007_community_kakao_events.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0008_community_session_persistence.sql', root), 'utf8'));
   env = { DB: adapter(sqlite) };
   calls = [];
   diagnostics = [];
@@ -69,9 +70,11 @@ function callback(flow, overrides = {}) {
     ? request(`/api/community-auth/apple/callback`, { method: 'POST', headers: { Cookie: flow.cookie, 'Content-Type': 'application/x-www-form-urlencoded' }, body: params })
     : request(`/api/community-auth/${flow.provider}/callback?${params}`, { headers: { Cookie: flow.cookie } });
 }
-async function start(provider, returnTo = '/') {
+async function start(provider, returnTo = '/', rememberMe) {
   configure(provider);
-  const response = await auth.startCommunityOAuth(request(`/api/community-auth/${provider}?return_to=${encodeURIComponent(returnTo)}`), env, provider);
+  const params = new URLSearchParams({ return_to: returnTo });
+  if (rememberMe !== undefined) params.set('remember_me', rememberMe);
+  const response = await auth.startCommunityOAuth(request(`/api/community-auth/${provider}?${params}`), env, provider);
   assert.equal(response.status, 303);
   const location = new URL(response.headers.get('Location'));
   const state = location.searchParams.get('state');
@@ -318,5 +321,137 @@ test('diagnostics distinguish userinfo failure and session storage failure witho
   assert.equal(JSON.stringify(diagnostics).includes('private-'), false);
   assert.equal(countSessions(), 0);
 });
+
+test('remember choice stays bound to OAuth state for every provider despite callback tampering', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  for (const provider of ['kakao', 'naver', 'google', 'apple']) {
+    for (const remembered of [false, true]) {
+      const flow = await start(provider, '/', remembered ? '1' : '0');
+      assert.equal(flow.stored.remember_me, Number(remembered));
+      assert.equal(flow.location.searchParams.has('remember_me'), false);
+      if (provider === 'kakao' || provider === 'naver') mockUserinfo(provider);
+      else mockOidc(await signedIdToken(flow));
+      const response = await auth.finishCommunityOAuth(callback(flow, { remember_me: remembered ? '0' : '1' }), env, provider);
+      assert.equal(response.headers.get('Location'), '/');
+      const cookie = setCookies(response)[0];
+      const row = await sessionRow(sessionCookie(response));
+      assert.equal(row.remember_me, Number(remembered));
+      assert.equal(row.expires_at - row.created_at, (remembered ? 14 * 24 : 12) * 3600000);
+      assert.match(cookie, /Path=\/; HttpOnly; Secure; SameSite=Lax/);
+      if (remembered) assert.match(cookie, /Max-Age=1209600/);
+      else assert.doesNotMatch(cookie, /Max-Age|Expires/i);
+    }
+  }
+  for (const value of [undefined, 'true', 'invalid']) {
+    assert.equal((await start('naver', '/', value)).stored.remember_me, 0);
+  }
+});
+
+test('remembered sessions renew cookie and database once a day and expire after inactivity', async (t) => {
+  const now = Date.now(), day = 86400000;
+  t.mock.timers.enable({ apis: ['Date'], now });
+  const flow = await start('naver', '/', '1');
+  mockUserinfo('naver');
+  const cookie = sessionCookie(await auth.finishCommunityOAuth(callback(flow), env, 'naver'));
+  const me = () => auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: cookie } }), env);
+  const initial = await sessionRow(cookie);
+  assert.equal(initial.expires_at, now + 14 * day);
+  assert.equal((await me()).headers.has('Set-Cookie'), false);
+  t.mock.timers.setTime(now + day - 1);
+  assert.equal((await me()).headers.has('Set-Cookie'), false);
+  assert.equal((await sessionRow(cookie)).expires_at, initial.expires_at);
+  t.mock.timers.setTime(now + day);
+  const renewed = await me();
+  assert.equal((await renewed.json()).signedIn, true);
+  assert.equal(sessionCookie(renewed), cookie);
+  assert.match(setCookies(renewed)[0], /Max-Age=1209600/);
+  assert.equal(renewed.headers.get('Cache-Control'), 'private, no-store');
+  const stored = await sessionRow(cookie);
+  assert.equal(stored.expires_at, now + 15 * day);
+  assert.equal(stored.created_at, initial.created_at);
+  assert.equal((await me()).headers.has('Set-Cookie'), false);
+  t.mock.timers.setTime(now + 14 * day + 1);
+  assert.equal(await auth.getCommunityIdentity(request('/', { headers: { Cookie: cookie } }), env), initial.user_id);
+  t.mock.timers.setTime(now + 15 * day);
+  const expired = await me();
+  assert.equal((await expired.json()).signedIn, false);
+  assert.equal(expired.headers.has('Set-Cookie'), false);
+  assert.equal((await sessionRow(cookie)).expires_at, stored.expires_at);
+});
+
+test('unchecked sessions never renew and end at the twelve-hour server deadline', async (t) => {
+  const now = Date.now();
+  t.mock.timers.enable({ apis: ['Date'], now });
+  const flow = await start('naver', '/', '0');
+  mockUserinfo('naver');
+  const cookie = sessionCookie(await auth.finishCommunityOAuth(callback(flow), env, 'naver'));
+  const me = () => auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: cookie } }), env);
+  t.mock.timers.setTime(now + 12 * 3600000 - 1);
+  const active = await me();
+  assert.equal((await active.json()).signedIn, true);
+  assert.equal(active.headers.has('Set-Cookie'), false);
+  assert.equal((await sessionRow(cookie)).expires_at, now + 12 * 3600000);
+  t.mock.timers.setTime(now + 12 * 3600000);
+  const expired = await me();
+  assert.equal((await expired.json()).signedIn, false);
+  assert.equal(expired.headers.has('Set-Cookie'), false);
+});
+
+test('renewal never recreates a session revoked concurrently or by logout', async () => {
+  const flow = await start('naver', '/', '1');
+  mockUserinfo('naver');
+  const cookie = sessionCookie(await auth.finishCommunityOAuth(callback(flow), env, 'naver'));
+  sqlite.prepare('UPDATE community_sessions SET expires_at = ?').run(Date.now() + 60000);
+  sqlite.exec('CREATE TRIGGER revoke_before_renew BEFORE UPDATE OF expires_at ON community_sessions BEGIN DELETE FROM community_sessions WHERE token_hash = OLD.token_hash; SELECT RAISE(IGNORE); END');
+  const revoked = await auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: cookie } }), env);
+  assert.equal((await revoked.json()).signedIn, false);
+  assert.equal(revoked.headers.has('Set-Cookie'), false);
+  assert.equal(countSessions(), 0);
+  sqlite.exec('DROP TRIGGER revoke_before_renew');
+  const next = await start('naver', '/', '1');
+  const nextCookie = sessionCookie(await auth.finishCommunityOAuth(callback(next), env, 'naver'));
+  assert.equal((await auth.logoutCommunity(request('/api/community-auth/logout', { method: 'POST', headers: { Cookie: nextCookie, Origin: 'https://workfolio.life' } }), env)).status, 200);
+  const loggedOut = await auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: nextCookie } }), env);
+  assert.equal((await loggedOut.json()).signedIn, false);
+  assert.equal(loggedOut.headers.has('Set-Cookie'), false);
+  assert.equal(countSessions(), 0);
+});
+
+test('renewal storage failure leaves the existing session intact without extending its cookie', async () => {
+  const flow = await start('naver', '/', '1');
+  mockUserinfo('naver');
+  const cookie = sessionCookie(await auth.finishCommunityOAuth(callback(flow), env, 'naver'));
+  const deadline = Date.now() + 60000;
+  sqlite.prepare('UPDATE community_sessions SET expires_at = ?').run(deadline);
+  sqlite.exec("CREATE TRIGGER fail_renew BEFORE UPDATE OF expires_at ON community_sessions BEGIN SELECT RAISE(ABORT, 'test failure'); END");
+  const failed = await auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: cookie } }), env);
+  assert.equal(failed.status, 503);
+  assert.equal(failed.headers.has('Set-Cookie'), false);
+  assert.equal((await sessionRow(cookie)).expires_at, deadline);
+});
+
+test('migration retains existing persistent sessions and safely defaults in-flight OAuth to unchecked', async () => {
+  const previous = new DatabaseSync(':memory:');
+  try {
+    previous.exec(readFileSync(new URL('migrations/0005_community_auth.sql', root), 'utf8'));
+    const token = 'a'.repeat(43);
+    const tokenHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))).toString('base64url');
+    previous.prepare('INSERT INTO community_users VALUES (?, ?, ?)').run('old-user', '기존 회원', Date.now());
+    previous.prepare('INSERT INTO community_sessions VALUES (?, ?, ?, ?)').run(tokenHash, 'old-user', Date.now(), Date.now() + 60000);
+    previous.prepare('INSERT INTO community_oauth_flows VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('flow', 'naver', 'browser', 'nonce', null, 'callback', '/', Date.now() + 60000);
+    previous.exec(readFileSync(new URL('migrations/0008_community_session_persistence.sql', root), 'utf8'));
+    assert.equal(previous.prepare('SELECT remember_me FROM community_sessions').get().remember_me, 1);
+    assert.equal(previous.prepare('SELECT remember_me FROM community_oauth_flows').get().remember_me, 0);
+    const response = await auth.communityMe(request('/api/community-auth/me', { headers: { Cookie: `__Host-community_session=${token}` } }), { DB: adapter(previous) });
+    assert.equal((await response.json()).user.id, 'old-user');
+    assert.ok(sessionCookie(response));
+    assert.ok(previous.prepare('SELECT expires_at FROM community_sessions').get().expires_at > Date.now() + 13 * 86400000);
+  } finally { previous.close(); }
+});
+
+async function sessionRow(cookie) {
+  const tokenHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cookie.split('=')[1]))).toString('base64url');
+  return sqlite.prepare('SELECT * FROM community_sessions WHERE token_hash = ?').get(tokenHash);
+}
 
 function countSessions() { return sqlite.prepare('SELECT COUNT(*) n FROM community_sessions').get().n; }

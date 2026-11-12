@@ -8,6 +8,7 @@ export interface Post {
   body: string;
   category: Category;
   nickname: string;
+  companyName: string | null;
   createdAt: number;
   sample: boolean;
   reactions: Record<Reaction, number>;
@@ -42,11 +43,13 @@ export function validPostId(value: unknown): string {
 }
 export function validateCreate(data: Record<string, unknown>) {
   if (!CATEGORIES.includes(data.category as Category)) throw new BoardError("이야기 주제를 골라 주세요.");
+  if (data.shareCompany !== undefined && typeof data.shareCompany !== "boolean") throw new BoardError("회사 공개 여부를 선택해 주세요.");
   return {
     title: textField(data.title, "제목", LIMITS.title, 2),
     body: textField(data.body, "이야기", LIMITS.body, 10),
     nickname: textField(data.nickname || "익명의 동료", "별명", LIMITS.nickname),
     category: data.category as Category,
+    shareCompany: data.shareCompany === true,
   };
 }
 export function checkMutationRequest(request: Request): void {

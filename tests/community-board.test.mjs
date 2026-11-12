@@ -46,7 +46,9 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql',root),'utf8'));
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql']) {
+    sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
+  }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
   env.DB = adapter(sqlite);
 });
@@ -201,4 +203,59 @@ test('all six boards are accepted and community writes leave commerce data untou
     assert.equal((await response.json()).post.category,category);
   }
   assert.deepEqual({...sqlite.prepare('SELECT * FROM customers').get()},{id:1,email:'existing@example.test'});
+});
+
+function verifyCompany(user = 'owner', company = 'workfolio', expiresAt = Date.now() + 86400000) {
+  sqlite.prepare('INSERT OR IGNORE INTO community_users (id, nickname, created_at) VALUES (?, ?, ?)').run(user, '테스트 동료', Date.now());
+  sqlite.prepare('INSERT OR REPLACE INTO community_company_verifications (user_id, company_id, email_hash, verified_at, expires_at) VALUES (?, ?, ?, ?, ?)')
+    .run(user, company, `private-email-hash-${user}`, Date.now(), expiresAt);
+}
+
+test('company disclosure is opt-in and never leaks a private company through list or detail responses', async () => {
+  verifyCompany();
+  for (const data of [draft, {...draft, shareCompany:false}, {...draft, companyName:'위조 회사', companyId:'workfolio'}]) {
+    const response = await mutate(data);
+    assert.equal(response.status,201);
+    const post = (await response.json()).post;
+    assert.equal(post.companyName,null);
+    assert.equal(sqlite.prepare('SELECT company_name FROM community_posts WHERE id = ?').get(post.id).company_name,null);
+    for (const user of [null,'owner','visitor']) {
+      const serialized = await (await list(user,post.id)).text();
+      assert.equal(JSON.parse(serialized).post.companyName,null);
+      assert.doesNotMatch(serialized,/Workfolio|private-email-hash|company_id|email_hash|verified_at/);
+    }
+  }
+  const feed = await (await list(null)).text();
+  assert.doesNotMatch(feed,/Workfolio|private-email-hash|company_id|email_hash/);
+  assert.ok(JSON.parse(feed).posts.every(post => post.companyName === null));
+});
+
+test('public company names come from current server verification and stay as a per-post snapshot', async () => {
+  const earlierPrivate = await create();
+  verifyCompany();
+  const response = await mutate({...draft,shareCompany:true,companyName:'위조 회사',companyId:'forged'});
+  assert.equal(response.status,201);
+  const post = (await response.json()).post;
+  assert.equal(post.companyName,'Workfolio');
+  sqlite.prepare('INSERT INTO community_companies (id,name) VALUES (?,?)').run('next-company','다음 회사');
+  verifyCompany('owner','next-company');
+  const next = await mutate({...draft,shareCompany:true});
+  assert.equal((await next.json()).post.companyName,'다음 회사');
+  assert.equal((await (await list(null,post.id)).json()).post.companyName,'Workfolio');
+  assert.equal((await (await list(null,earlierPrivate.id)).json()).post.companyName,null);
+  sqlite.prepare('DELETE FROM community_company_verifications').run();
+  assert.equal((await (await list(null,post.id)).json()).post.companyName,'Workfolio');
+});
+
+test('unverified, expired, and other-account company proofs cannot authorize a public company post', async () => {
+  assert.equal((await mutate({...draft,shareCompany:true,companyName:'Workfolio'})).status,403);
+  verifyCompany('visitor');
+  assert.equal((await mutate({...draft,shareCompany:true})).status,403);
+  verifyCompany('owner','workfolio',Date.now()-1);
+  assert.equal((await mutate({...draft,shareCompany:true})).status,403);
+  for (const shareCompany of ['true','false',1,null,{}]) {
+    assert.equal((await mutate({...draft,shareCompany})).status,400);
+  }
+  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM community_posts').get().n,0);
+  assert.equal((await mutate({...draft,shareCompany:false})).status,201);
 });

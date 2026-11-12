@@ -17,7 +17,7 @@ export interface CommunityAuthEnv {
 
 export type CommunityProvider = 'kakao' | 'naver' | 'google' | 'apple';
 type AuthErrorCode = 'provider_unavailable' | 'invalid_state' | 'provider_denied' | 'login_failed' | 'insecure_origin';
-type OAuthFlow = { state_hash: string; provider: CommunityProvider; browser_hash: string; nonce: string; code_verifier: string | null; redirect_uri: string; return_to: string; expires_at: number };
+type OAuthFlow = { state_hash: string; provider: CommunityProvider; browser_hash: string; nonce: string; code_verifier: string | null; redirect_uri: string; return_to: string; expires_at: number; remember_me: number };
 type OAuthStage = 'callback_validate' | 'state_lookup' | 'state_claim' | 'authorization_response' | 'client_credentials' | 'token_request' | 'token_response' | 'token_validate' | 'id_token_verify' | 'userinfo_request' | 'userinfo_response' | 'userinfo_validate' | 'session_write';
 type OAuthDiagnostic = { stage: OAuthStage; http_status: number | null; provider_code: string | null };
 
@@ -46,7 +46,9 @@ const PROVIDERS = {
 } as const;
 
 const FLOW_SECONDS = 600;
-const SESSION_SECONDS = 60 * 60 * 24 * 14;
+const SESSION_SECONDS = 60 * 60 * 12;
+const REMEMBER_SECONDS = 60 * 60 * 24 * 14;
+const RENEW_SECONDS = 60 * 60 * 24;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const jwks = {
   google: createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'), { timeoutDuration: 8000 }),
@@ -90,9 +92,9 @@ function cookieName(request: Request, suffix = 'session'): string {
   return `${localHttp(new URL(request.url)) ? '' : '__Host-'}community_${suffix}`;
 }
 
-function cookie(request: Request, suffix: string, value: string, maxAge: number, apple = false): string {
+function cookie(request: Request, suffix: string, value: string, maxAge: number | null, apple = false): string {
   const secure = !localHttp(new URL(request.url));
-  return `${cookieName(request, suffix)}=${value}; Path=/; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=${apple ? 'None' : 'Lax'}; Max-Age=${maxAge}`;
+  return `${cookieName(request, suffix)}=${value}; Path=/; HttpOnly; ${secure ? 'Secure; ' : ''}SameSite=${apple ? 'None' : 'Lax'}${maxAge === null ? '' : `; Max-Age=${maxAge}`}`;
 }
 
 function readCookie(request: Request, name: string): string | null {
@@ -142,23 +144,39 @@ function requireConfigured(env: CommunityAuthEnv, provider: CommunityProvider): 
   if (!communityProviders(env).find((item) => item.id === provider)?.configured) throw new AuthError('provider_unavailable', 503);
 }
 
-/** Only verified community sessions count as identity; legacy/OAI headers are ignored. */
-export async function getCommunityIdentity(request: Request, env: CommunityAuthEnv): Promise<string | null> {
+async function getCommunitySession(request: Request, env: CommunityAuthEnv) {
   const url = new URL(request.url);
   if (url.protocol !== 'https:' && !localHttp(url)) return null;
   const token = readCookie(request, cookieName(request));
   if (!token) return null;
-  const row = await env.DB.prepare('SELECT s.user_id FROM community_sessions s JOIN community_users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?')
-    .bind(await hash(token), Date.now()).first<{ user_id: string }>();
-  return row?.user_id ?? null;
+  const tokenHash = await hash(token);
+  const row = await env.DB.prepare('SELECT s.user_id, s.expires_at, s.remember_me, u.nickname FROM community_sessions s JOIN community_users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?')
+    .bind(tokenHash, Date.now()).first<{ user_id: string; expires_at: number; remember_me: number; nickname: string }>();
+  return row ? { ...row, token, tokenHash } : null;
+}
+
+/** Only verified community sessions count as identity; legacy/OAI headers are ignored. */
+export async function getCommunityIdentity(request: Request, env: CommunityAuthEnv): Promise<string | null> {
+  return (await getCommunitySession(request, env))?.user_id ?? null;
 }
 
 export async function communityMe(request: Request, env: CommunityAuthEnv): Promise<Response> {
   const providers = communityProviders(env);
   try {
-    const identity = await getCommunityIdentity(request, env);
-    const user = identity ? await env.DB.prepare('SELECT id, nickname FROM community_users WHERE id = ?').bind(identity).first<{ id: string; nickname: string }>() : null;
-    return communityAuthJson({ signedIn: Boolean(user), user, providers });
+    const session = await getCommunitySession(request, env);
+    let user = session ? { id: session.user_id, nickname: session.nickname } : null;
+    let renewedCookie: string | null = null;
+    const now = Date.now();
+    if (session?.remember_me === 1 && session.expires_at <= now + (REMEMBER_SECONDS - RENEW_SECONDS) * 1000) {
+      // Keep the token stable across tabs, and never recreate an expired or revoked session.
+      const renewed = await env.DB.prepare('UPDATE community_sessions SET expires_at = MAX(expires_at, ?) WHERE token_hash = ? AND expires_at > ? AND remember_me = 1 RETURNING expires_at')
+        .bind(now + REMEMBER_SECONDS * 1000, session.tokenHash, now).first<{ expires_at: number }>();
+      if (renewed) renewedCookie = cookie(request, 'session', session.token, Math.max(0, Math.floor((renewed.expires_at - Date.now()) / 1000)));
+      else user = null;
+    }
+    const response = communityAuthJson({ signedIn: Boolean(user), user, providers });
+    if (renewedCookie) response.headers.append('Set-Cookie', renewedCookie);
+    return response;
   } catch {
     return communityAuthJson({ signedIn: false, user: null, providers, error: '로그인 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.' }, 503);
   }
@@ -182,8 +200,8 @@ export async function startCommunityOAuth(request: Request, env: CommunityAuthEn
       env.DB.prepare('DELETE FROM community_oauth_flows WHERE expires_at <= ?').bind(Date.now()),
       env.DB.prepare('DELETE FROM community_kakao_events WHERE expires_at <= ?').bind(Date.now()),
       env.DB.prepare('UPDATE community_kakao_events SET subject_hash = NULL, occurred_before = NULL, blocked_until = NULL WHERE blocked_until <= ?').bind(Date.now()),
-      env.DB.prepare('INSERT INTO community_oauth_flows (state_hash, provider, browser_hash, nonce, code_verifier, redirect_uri, return_to, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(await hash(state), provider, await hash(browser), nonce, verifier, callback, returnTo, Date.now() + FLOW_SECONDS * 1000),
+      env.DB.prepare('INSERT INTO community_oauth_flows (state_hash, provider, browser_hash, nonce, code_verifier, redirect_uri, return_to, expires_at, remember_me) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(await hash(state), provider, await hash(browser), nonce, verifier, callback, returnTo, Date.now() + FLOW_SECONDS * 1000, url.searchParams.get('remember_me') === '1' ? 1 : 0),
     ]);
     const authorization = new URL(settings.authorization);
     authorization.search = new URLSearchParams({ client_id: env[settings.clientId]!.trim(), redirect_uri: callback, response_type: 'code', state }).toString();
@@ -308,8 +326,8 @@ async function accountSession(env: CommunityAuthEnv, flow: OAuthFlow, providerSu
       .bind(id, `퇴근러${randomToken().slice(0, 4)}`, now, provider, providerSubject, subjectHash, flowStartedAt, now),
     env.DB.prepare('INSERT INTO community_accounts (provider, subject, user_id, created_at) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM community_users WHERE id = ?) ON CONFLICT(provider, subject) DO NOTHING')
       .bind(provider, providerSubject, id, now, id),
-    env.DB.prepare(`INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at) SELECT ?, user_id, ?, ? FROM community_accounts WHERE provider = ? AND subject = ? AND ${allowed}`)
-      .bind(tokenHash, now, now + SESSION_SECONDS * 1000, provider, providerSubject, subjectHash, flowStartedAt, now),
+    env.DB.prepare(`INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at, remember_me) SELECT ?, user_id, ?, ?, ? FROM community_accounts WHERE provider = ? AND subject = ? AND ${allowed}`)
+      .bind(tokenHash, now, now + (flow.remember_me === 1 ? REMEMBER_SECONDS : SESSION_SECONDS) * 1000, flow.remember_me, provider, providerSubject, subjectHash, flowStartedAt, now),
     env.DB.prepare('DELETE FROM community_sessions WHERE expires_at <= ?').bind(now),
   ];
   if (oldToken) statements.push(env.DB.prepare('DELETE FROM community_sessions WHERE token_hash = ? AND EXISTS (SELECT 1 FROM community_sessions WHERE token_hash = ?)').bind(await hash(oldToken), tokenHash));
@@ -352,7 +370,7 @@ export async function finishCommunityOAuth(request: Request, env: CommunityAuthE
     diagnostic.provider_code = null;
     const oldToken = readCookie(request, cookieName(request));
     const token = await accountSession(env, flow, providerSubject, oldToken);
-    return redirect(returnTo, [cookie(request, 'session', token, SESSION_SECONDS), cookie(request, `oauth_${provider}`, '', 0, provider === 'apple')]);
+    return redirect(returnTo, [cookie(request, 'session', token, flow.remember_me === 1 ? REMEMBER_SECONDS : null), cookie(request, `oauth_${provider}`, '', 0, provider === 'apple')]);
   } catch (error) {
     // Never log request URLs, headers, bodies, exception messages, tokens, codes or member IDs.
     // Every field below is a local enum, HTTP status, or explicitly allowlisted provider error.

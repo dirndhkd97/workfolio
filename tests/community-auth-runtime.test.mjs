@@ -52,15 +52,15 @@ before(async () => {
     bindings: { KAKAO_CLIENT_ID: 'dummy-kakao-client', KAKAO_CLIENT_SECRET: 'dummy-kakao-secret', NAVER_CLIENT_ID: 'dummy-naver-client', NAVER_CLIENT_SECRET: 'dummy-naver-secret' },
   });
   db = await runtime.getD1Database('DB');
-  for (const file of ['0005_community_auth.sql', '0007_community_kakao_events.sql']) {
+  for (const file of ['0005_community_auth.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql']) {
     const statements = readFileSync(new URL(`migrations/${file}`, root), 'utf8').replace(/--[^\n]*/g, '').split(';').map((sql) => sql.trim()).filter(Boolean);
     await db.batch(statements.map((sql) => db.prepare(sql)));
   }
 });
 after(async () => { await runtime?.dispose(); });
 
-async function callback(provider) {
-  const start = await runtime.dispatchFetch(`https://workfolio.life/api/community-auth/${provider}`, { redirect: 'manual' });
+async function callback(provider, rememberMe = '0') {
+  const start = await runtime.dispatchFetch(`https://workfolio.life/api/community-auth/${provider}?remember_me=${rememberMe}`, { redirect: 'manual' });
   assert.equal(start.status, 303);
   const state = new URL(start.headers.get('Location')).searchParams.get('state');
   const cookie = start.headers.getSetCookie()[0].split(';')[0];
@@ -75,12 +75,27 @@ test('Kakao and Naver complete token fetch, userinfo and session creation in rea
   for (const [provider, endpoint] of Object.entries(endpoints)) {
     tokenResponse(provider);
     expectedRequests.push({ url: endpoint.userOrigin + endpoint.userPath, method: 'GET', status: 200, data: endpoint.profile });
-    const response = await callback(provider);
+    const response = await callback(provider, provider === 'kakao' ? '1' : '0');
     assert.equal(response.status, 303);
     assert.equal(response.headers.get('Location'), '/', provider);
     const cookie = response.headers.getSetCookie().find((value) => value.startsWith('__Host-community_session=')).split(';')[0];
     const me = await runtime.dispatchFetch('https://workfolio.life/api/community-auth/me', { headers: { Cookie: cookie } });
     assert.equal((await me.json()).signedIn, true, provider);
+    assert.equal(me.headers.has('Set-Cookie'), false);
+    const tokenHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cookie.split('=')[1]))).toString('base64url');
+    if (provider === 'kakao') {
+      assert.match(response.headers.getSetCookie()[0], /Max-Age=1209600/);
+      await db.prepare('UPDATE community_sessions SET expires_at = ? WHERE token_hash = ?').bind(Date.now() + 60000, tokenHash).run();
+      const renewed = await runtime.dispatchFetch('https://workfolio.life/api/community-auth/me', { headers: { Cookie: cookie } });
+      assert.equal((await renewed.json()).signedIn, true);
+      assert.equal(renewed.headers.getSetCookie()[0].split(';')[0], cookie);
+      assert.match(renewed.headers.getSetCookie()[0], /HttpOnly; Secure; SameSite=Lax/);
+      const maxAge = Number(/Max-Age=(\d+)/.exec(renewed.headers.getSetCookie()[0])?.[1]);
+      assert.ok(maxAge > 1209500 && maxAge <= 1209600);
+      assert.ok((await db.prepare('SELECT expires_at FROM community_sessions WHERE token_hash = ?').bind(tokenHash).first()).expires_at > Date.now() + 13 * 86400000);
+    } else {
+      assert.doesNotMatch(response.headers.getSetCookie()[0], /Max-Age|Expires/i);
+    }
   }
   assert.deepEqual(outboundFailures, []);
   assert.equal(expectedRequests.length, 0);
