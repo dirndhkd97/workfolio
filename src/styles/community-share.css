@@ -1,0 +1,14 @@
+.post-share { margin-top: 20px; color: #526449; font-size: 12px; }
+.post-share summary { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 8px 14px; border: 1px solid #dfe6d5; border-radius: 8px; background: #f8faf5; font-weight: 700; cursor: pointer; list-style: none; }
+.post-share summary::-webkit-details-marker { display: none; }
+.post-share summary:focus-visible, .post-share :is(button,a,input):focus-visible { outline: 2px solid #497341; outline-offset: 3px; }
+.post-share-options { margin-top: 10px; padding: 14px; border: 1px solid #e2e8db; border-radius: 10px; background: #f7f9f2; }
+.post-share-options p { margin: 0 0 10px; font-size: 12px; line-height: 1.6; }
+.post-share-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.post-share-buttons :is(button,a) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 9px 12px; border: 1px solid #dbe3d1; border-radius: 7px; background: white; color: #385333; font: inherit; text-decoration: none; cursor: pointer; }
+.post-share-buttons :is(button,a):hover { border-color: #aebf9c; background: #eff4e7; }
+.post-share-options .post-share-help { margin-top: 10px; color: #718268; }
+.post-share-options .post-share-status { margin: 10px 0 0; }
+.post-share-status:empty { display: none; }
+.post-share-copy { width: 100%; min-width: 0; margin-top: 10px; padding: 10px; border: 1px solid #becdb3; border-radius: 6px; font-size: 16px; color: #385333; background: white; }
+@media(max-width: 440px) { .post-share-buttons :is(button,a) { flex: 1 1 auto; } }

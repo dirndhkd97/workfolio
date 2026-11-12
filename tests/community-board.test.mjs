@@ -15,11 +15,13 @@ const compile = (path, filename, rewrite = (value) => value) => {
   writeFileSync(join(directory,filename),rewrite(compiled));
 };
 compile('src/lib/community/domain.ts','domain.mjs');
-compile('src/lib/community/sample-posts.ts','sample-posts.mjs');
+compile('functions/_lib/community-images.ts','images.mjs',value => value
+  .replace(/import \{ getCommunityIdentity[^\n]+community-auth';/, 'const getCommunityIdentity = globalThis.__communityIdentityForTest;')
+  .replace("'../../src/lib/community/domain'","'./domain.mjs'"));
 compile('functions/api/board.ts','route.mjs',value => value
   .replace(/import \{ getCommunityIdentity[^\n]+community-auth";/, 'const getCommunityIdentity = globalThis.__communityIdentityForTest;')
   .replace('"../../src/lib/community/domain"','"./domain.mjs"')
-  .replace('"../../src/lib/community/sample-posts"','"./sample-posts.mjs"'));
+  .replace('"../_lib/community-images"','"./images.mjs"'));
 const env = {};
 const testSessions = new Map([['owner-session','owner'],['visitor-session','visitor']]);
 // The real auth helper has its own tests; this stub only grants configured session cookies.
@@ -46,7 +48,7 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
   }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
@@ -63,9 +65,9 @@ async function list(user='owner',id='') {
   return onRequestGet({env,request:new Request('https://board.example/api/board'+(id?'?id='+id:''),{headers:user?{Cookie:`mock_community_session=${user}-session`}:{}})});
 }
 async function create() { const response = await mutate(draft); assert.equal(response.status,201); return (await response.json()).post; }
-test('sample feed is explicitly fictional with zero counters and read-only anonymous identity',async () => {
+test('empty feed contains no generated examples and anonymous users remain read-only',async () => {
   const response = await list(null); const data = await response.json();
-  assert.equal(data.signedIn,false); assert.equal(data.posts.length,6);
+  assert.equal(data.signedIn,false); assert.equal(data.posts.length,0);
   assert.ok(data.posts.every(post => post.sample && !post.mine && post.isAdminAuthor === false && post.commentCount===0 && Object.values(post.reactions).every(count=>count===0)));
   assert.equal((await mutate(draft,null)).status,401);
   assert.equal(response.headers.get('cache-control'),'private, no-store');
@@ -140,15 +142,16 @@ test('only the author can delete; deletion removes associated records atomically
   await mutate({action:'react',postId:post.id,reaction:'cheer'});
   await mutate({action:'report',postId:post.id,reason:'확인 요청입니다.'});
   assert.equal((await mutate({action:'delete',postId:post.id},'visitor')).status,403);
-  assert.equal((await mutate({action:'delete',postId:'sample-01'})).status,403);
+  assert.equal((await mutate({action:'delete',postId:'sample-01'})).status,404);
   assert.equal((await mutate({action:'delete',postId:post.id})).status,200);
   for (const table of ['community_posts','community_comments','community_reactions','community_reports']) assert.equal(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n,0);
   assert.equal((await list('owner',post.id)).status,404);
   assert.equal((await mutate({action:'comment',postId:post.id,body:'삭제 후 댓글'})).status,404);
 });
-test('sample engagement is real stored engagement, and errors remain useful but private',async () => {
-  assert.equal((await mutate({action:'comment',postId:'sample-01',body:'예시 상황이 재밌네요.'})).status,201);
-  const {post} = await (await mutate({action:'react',postId:'sample-01',reaction:'laugh'})).json(); assert.equal(post.reactions.laugh,1); assert.equal(post.commentCount,1);
+test('real post engagement persists, and errors remain useful but private',async () => {
+  const created = await create();
+  assert.equal((await mutate({action:'comment',postId:created.id,body:'이 이야기가 재밌네요.'})).status,201);
+  const {post} = await (await mutate({action:'react',postId:created.id,reaction:'laugh'})).json(); assert.equal(post.reactions.laugh,1); assert.equal(post.commentCount,1);
   assert.equal((await mutate({...draft,body:'개인 연락처는 person@example.com 입니다.'})).status,400);
   env.DB = undefined;
   const response = await list(); assert.equal(response.status,503); assert.equal(typeof (await response.json()).error,'string');
@@ -183,13 +186,14 @@ test('cross-origin, malformed and oversized mutation requests do not write posts
 });
 
 test('write rate limits are account-scoped, atomic and reset after one minute',async () => {
-  for (let attempt=0;attempt<30;attempt++) {
-    assert.equal((await mutate({action:'react',postId:'sample-01',reaction:'same'})).status,200);
+  const post = await create();
+  for (let attempt=0;attempt<29;attempt++) {
+    assert.equal((await mutate({action:'react',postId:post.id,reaction:'same'})).status,200);
   }
   const blocked = await mutate(draft);
   assert.equal(blocked.status,429);
   assert.equal(blocked.headers.get('retry-after'),'60');
-  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM community_posts').get().n,0);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM community_posts').get().n,1);
   assert.equal((await mutate(draft,'visitor')).status,201);
   sqlite.prepare('UPDATE community_write_limits SET window_started_at = ? WHERE owner_id = ?').run(Date.now()-61000,'owner');
   assert.equal((await mutate(draft)).status,201);
@@ -319,4 +323,58 @@ test('admin display certification grants no extra deletion permissions or commen
   assert.equal('isAdmin' in comment,false);
   assert.equal((await mutate({action:'delete',postId:adminPost.id})).status,200);
   assert.equal((await list(null,visitorPost.id)).status,200);
+});
+
+
+test('retired generated examples cannot be read or receive new engagement', async () => {
+  for (const id of ['sample-01','sample-02','sample-03','sample-04','sample-05','sample-06']) {
+    assert.equal((await list(null,id)).status,404);
+    for (const action of ['comment','react','report','delete']) assert.equal((await mutate({action,postId:id,body:'생성된 예시 글 댓글',reaction:'same',reason:'확인 요청입니다.'})).status,404);
+  }
+  for (const table of ['community_posts','community_comments','community_reactions','community_reports']) assert.equal(sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,0);
+});
+function seedImage(owner = 'owner', status = 'pending', expiresAt = Date.now() + 86400000) {
+  const id = crypto.randomUUID();
+  sqlite.prepare('INSERT INTO community_post_images (id,owner_id,object_key,status,content_type,byte_size,width,height,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(id,owner,`community/${id}`,status,'image/png',100,320,240,Date.now(),expiresAt);
+  return id;
+}
+test('post creation atomically attaches the author images in chosen order and exposes only public metadata', async () => {
+  const ids = [seedImage(),seedImage()];
+  const response = await mutate({...draft,body:'사진',imageIds:ids.toReversed()});
+  assert.equal(response.status,201);
+  const {post} = await response.json();
+  assert.deepEqual(post.images,ids.toReversed().map(id=>({id,url:`/api/community-images/${id}`,width:320,height:240})));
+  assert.deepEqual((await (await list(null,post.id)).json()).post.images,post.images);
+  assert.deepEqual((await (await list(null)).json()).posts[0].images,post.images);
+  assert.doesNotMatch(JSON.stringify(post),/object_key|owner_id|expires_at|byte_size/);
+  const repeat = await mutate({...draft,imageIds:ids});
+  assert.equal(repeat.status,403);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM community_posts').get().n,1);
+  assert.ok(sqlite.prepare('SELECT status,post_id FROM community_post_images').all().every(row=>row.status==='attached'&&row.post_id===post.id));
+});
+test('foreign, expired, missing, duplicated and oversized attachment claims never create a partial post', async () => {
+  const own = seedImage(), foreign = seedImage('visitor'), expired = seedImage('owner','pending',Date.now()-1), uploading = seedImage('owner','uploading');
+  for (const imageIds of [[own,foreign],[own,expired],[own,uploading],[own,crypto.randomUUID()]]) {
+    assert.equal((await mutate({...draft,imageIds})).status,403);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM community_posts').get().n,0);
+    assert.equal(sqlite.prepare('SELECT status FROM community_post_images WHERE id=?').get(own).status,'pending');
+  }
+  for (const imageIds of [[own,own],Array.from({length:11},()=>crypto.randomUUID()),['https://evil.example/image.png'],[42],null,'image']) assert.equal((await mutate({...draft,imageIds})).status,400);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM community_posts').get().n,0);
+  assert.equal((await mutate({...draft,body:'짧음'})).status,400);
+  assert.equal((await mutate({...draft,body:'',imageIds:[own]})).status,400);
+});
+test('failed company disclosure leaves attachment pending and deletion makes attached images inaccessible', async () => {
+  const image = seedImage();
+  assert.equal((await mutate({...draft,imageIds:[image],shareCompany:true})).status,403);
+  assert.equal(sqlite.prepare('SELECT status FROM community_post_images WHERE id=?').get(image).status,'pending');
+  verifyCompany();
+  const post = (await (await mutate({...draft,imageIds:[image],shareCompany:true})).json()).post;
+  assert.equal(post.isAdminAuthor,true);
+  assert.equal((await mutate({action:'delete',postId:post.id},'visitor')).status,403);
+  assert.equal(sqlite.prepare('SELECT status FROM community_post_images WHERE id=?').get(image).status,'attached');
+  assert.equal((await mutate({action:'delete',postId:post.id})).status,200);
+  assert.equal(sqlite.prepare('SELECT status FROM community_post_images WHERE id=?').get(image).status,'deleted');
+  assert.equal((await mutate({...draft,imageIds:[image]})).status,403);
 });

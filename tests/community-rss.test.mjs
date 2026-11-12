@@ -12,11 +12,14 @@ const root = new URL('../', import.meta.url);
 const directory = mkdtempSync(join(tmpdir(), 'workfolio-rss-'));
 for (const [source, target] of [
   ['src/lib/community/seo.ts', 'seo.mjs'],
+  ['src/lib/community/sharing.ts', 'sharing.mjs'],
   ['functions/_lib/community-seo.ts', 'helper.mjs'],
   ['functions/rss.xml.ts', 'rss.mjs'],
 ]) {
   const compiled = stripTypeScriptTypes(readFileSync(new URL(source, root), 'utf8'))
     .replace(/(['"])(?:\.\.\/)+src\/lib\/community\/seo\1/g, "'./seo.mjs'")
+    .replace(/(['"])\.\/seo\1/g, "'./seo.mjs'")
+    .replace(/(['"])(?:\.\.\/)+src\/lib\/community\/sharing\1/g, "'./sharing.mjs'")
     .replace(/(['"])(?:\.\.\/|\.\/)\_lib\/community-seo\1/g, "'./helper.mjs'");
   writeFileSync(join(directory, target), compiled);
 }

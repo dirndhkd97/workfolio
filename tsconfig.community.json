@@ -30,6 +30,9 @@
     "functions/sitemap-posts.xml.ts",
     "functions/_lib/community-company.ts",
     "functions/api/community-company/**/*",
-    "functions/rss.xml.ts"
+    "functions/rss.xml.ts",
+    "functions/_lib/community-images.ts",
+    "functions/api/community-images/**/*",
+    "functions/api/community-images.ts"
   ]
 }

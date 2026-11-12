@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 const ACCOUNT = 'ae40d286be880d4faf549a14530875dc';
 const DATABASE = '070de128-ce30-40d1-9ba2-bc00e08cc073';
 const PROJECT = 'workfolio';
-const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges'];
+const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges', 'community_post_images', 'community_image_upload_limits'];
 const REQUIRED = {
   community_sessions: ['token_hash', 'user_id', 'created_at', 'expires_at', 'remember_me'],
   community_oauth_flows: ['state_hash', 'provider', 'browser_hash', 'nonce', 'code_verifier', 'redirect_uri', 'return_to', 'expires_at', 'remember_me'],
@@ -15,6 +15,8 @@ const REQUIRED = {
   community_company_domains: ['domain', 'company_id'],
   community_company_verifications: ['user_id', 'company_id', 'email_hash', 'verified_at', 'expires_at', 'domain'],
   community_company_challenges: ['id', 'user_id', 'company_id', 'domain', 'email_hash', 'code_hash', 'created_at', 'expires_at', 'attempts', 'status', 'claim_token'],
+  community_post_images: ['id', 'owner_id', 'object_key', 'post_id', 'status', 'position', 'content_type', 'byte_size', 'width', 'height', 'created_at', 'expires_at'],
+  community_image_upload_limits: ['owner_id', 'window_started_at', 'attempts'],
 };
 // This is the only data UPDATE accepted alongside the additive schema migrations.
 const VERIFIED_DOMAIN_BACKFILL = `WITH proven_company_domains AS (
@@ -97,6 +99,7 @@ export async function applySchema(query, readMigration = name => readFile(`migra
       if (!columns.some(row => row.name === match[2])) await query(statement);
     }
   }
+  await query(await readMigration('0012_community_post_images.sql'));
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);
     if (required.some(column => !columns.includes(column))) throw new Error(`Required columns missing in ${table}.`);

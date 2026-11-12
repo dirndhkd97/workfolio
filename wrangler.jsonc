@@ -2,6 +2,9 @@
   "name": "workfolio",
   "compatibility_date": "2024-12-01",
   "pages_build_output_dir": "dist",
+  "r2_buckets": [
+    { "binding": "COMMUNITY_IMAGES", "bucket_name": "workfolio-community-images" }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

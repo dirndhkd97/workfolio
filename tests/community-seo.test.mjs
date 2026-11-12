@@ -12,7 +12,7 @@ const root = new URL('../', import.meta.url);
 const directory = mkdtempSync(join(tmpdir(), 'workfolio-seo-'));
 for (const [source, target] of [
   ['src/lib/community/seo.ts', 'seo.mjs'],
-  ['src/lib/community/sample-posts.ts', 'sample-posts.mjs'],
+  ['src/lib/community/sharing.ts', 'sharing.mjs'],
   ['functions/_lib/community-seo.ts', 'helper.mjs'],
   ['functions/posts/[id].ts', 'post.mjs'],
   ['functions/boards/[slug].ts', 'board.mjs'],
@@ -21,7 +21,9 @@ for (const [source, target] of [
 ]) {
   const compiled = stripTypeScriptTypes(readFileSync(new URL(source, root), 'utf8'))
     .replace(/(['"])(?:\.\.\/)+src\/lib\/community\/seo\1/g, "'./seo.mjs'")
-    .replace(/(['"])(?:\.\.\/)+src\/lib\/community\/sample-posts\1/g, "'./sample-posts.mjs'")
+    .replace(/(['"])\.\/seo\1/g, "'./seo.mjs'")
+    .replace(/(['"])(?:\.\.\/)+src\/lib\/community\/sharing\1/g, "'./sharing.mjs'")
+
     .replace(/(['"])(?:\.\.\/|\.\/)\_lib\/community-seo\1/g, "'./helper.mjs'");
   writeFileSync(join(directory, target), compiled);
 }
@@ -35,7 +37,7 @@ let env;
 beforeEach(() => {
   sqlite?.close();
   sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`, root), 'utf8'));
   }
   statements = [];
@@ -142,14 +144,15 @@ test('post HTML contains the complete escaped discussion, metadata and real comm
   assert.ok(statements.every(sql => !sql.includes('owner_id') && !sql.includes('community_sessions')));
 });
 
-test('fictional samples are clearly labelled and excluded from indexing and discussion structured data', async () => {
-  const response = await request(post, '/posts/sample-01', { id: 'sample-01' });
-  const html = await response.text();
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('X-Robots-Tag'), 'noindex, follow');
-  assert.match(html, /\[가상 예시\]/);
-  assert.match(html, /실제 이용자가 작성한 사연이 아닙니다/);
-  assert.doesNotMatch(html, /DiscussionForumPosting|application\/ld\+json/);
+test('retired editorial samples return 404 and cannot reappear from a legacy database row', async () => {
+  seed('sample-01');
+  for (const id of ['sample-01', 'sample-02']) {
+    const response = await request(post, `/posts/${id}`, { id });
+    const html = await response.text();
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get('X-Robots-Tag'), 'noindex, follow');
+    assert.doesNotMatch(html, /DiscussionForumPosting|application\/ld\+json|편집용 가상/);
+  }
 });
 
 test('missing pages return 404 while D1 errors return retryable noindex 503 without leaking errors', async () => {
@@ -170,7 +173,8 @@ test('missing pages return 404 while D1 errors return retryable noindex 503 with
 });
 
 test('all reader endpoints reject mutations before accessing D1 and support empty HEAD responses', async () => {
-  for (const [route, path, params] of [[post, '/posts/sample-01', { id: 'sample-01' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}]]) {
+  seed('head-post');
+  for (const [route, path, params] of [[post, '/posts/head-post', { id: 'head-post' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}]]) {
     const before = statements.length;
     const rejected = await request(route, path, params, 'POST');
     assert.equal(rejected.status, 405);
@@ -245,4 +249,28 @@ test('empty and invalid sitemap pages remain well formed, and markup helpers esc
   const safe = helpers.jsonLd({ text: unsafe });
   assert.doesNotMatch(safe, /[<>&\u2028\u2029]/);
   assert.equal(JSON.parse(safe).text, unsafe);
+});
+
+
+test('shared photo posts expose only attached images in order and use the first photo in social previews', async () => {
+  seed('photo-post', { title: '오늘의 사진 <기록>' });
+  seed('other-post');
+  const insert = sqlite.prepare('INSERT INTO community_post_images (id,owner_id,object_key,post_id,status,position,content_type,byte_size,width,height,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+  for (const [id, postId, status, position] of [['second-image','photo-post','attached',1], ['first-image','photo-post','attached',0], ['draft-image','photo-post','pending',0], ['deleted-image','photo-post','deleted',0], ['other-image','other-post','attached',0]]) {
+    insert.run(id, 'private-image-owner', `private-key-${id}`, postId, status, position, 'image/jpeg', 1000, 1200, 800, createdAt, createdAt + 1000);
+  }
+  const response = await request(post, '/posts/photo-post?token=never-share#draft', { id: 'photo-post' });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /property="og:image" content="https:\/\/workfolio\.life\/api\/community-images\/first-image"/);
+  assert.match(html, /name="twitter:image" content="https:\/\/workfolio\.life\/api\/community-images\/first-image"/);
+  const imageTags = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(imageTags, ['/api/community-images/first-image', '/api/community-images/second-image']);
+  const schema = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
+  assert.deepEqual(schema.image, imageTags.map(url => metadata.SITE_ORIGIN + url));
+  assert.match(html, /data-share-url="https:\/\/workfolio\.life\/posts\/photo-post"/);
+  for (const service of ['twitter.com/intent/tweet', 'www.facebook.com/sharer/sharer.php', 'www.threads.com/intent/post', 'social-plugins.line.me/lineit/share']) assert.ok(html.includes(service));
+  assert.match(html, /<script src="\/community-share.js" defer>/);
+  assert.match(response.headers.get('Content-Security-Policy'), /script-src 'self'/);
+  assert.doesNotMatch(html, /draft-image|deleted-image|other-image|private-image-owner|private-key|never-share/);
 });

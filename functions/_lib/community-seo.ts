@@ -1,4 +1,5 @@
 import { BOARD_PAGES, SITE_NAME, SITE_ORIGIN, SOCIAL_IMAGE, boardPath } from '../../src/lib/community/seo';
+import { postShareLinks, postShareUrl } from '../../src/lib/community/sharing';
 
 export interface CommunitySeoEnv { DB: D1Database }
 export interface PublicPost {
@@ -14,7 +15,7 @@ export interface PublicPost {
 export interface PublicComment { id: string; body: string; nickname: string; created_at: number }
 
 export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, is_admin_author, created_at';
-// Stored community posts use UUIDs; sample-* belongs to the separate editorial examples.
+// Retired editorial sample IDs must never appear in the public feeds.
 export const REAL_POSTS = "id NOT LIKE 'sample-%'";
 export const SITEMAP_SIZE = 1000;
 
@@ -29,6 +30,12 @@ export function companyAuthorMarkup(post: Pick<PublicPost, 'company_name' | 'is_
   const isAdmin = Boolean(post.company_name) && post.is_admin_author === 1;
   const label = isAdmin ? '관리자' : post.company_name || '회사 비공개';
   return `<span${isAdmin ? ' class="admin-author-badge" aria-label="Workfolio 인증 관리자"' : ''}>${escapeMarkup(label)}</span>`;
+}
+
+export function postShareMarkup(id: string, title: string): string {
+  const url = postShareUrl(id);
+  const links = postShareLinks(id, title).map(item => `<a href="${escapeMarkup(item.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeMarkup(item.name)}에 공유 (새 창)">${escapeMarkup(item.name)}</a>`).join('');
+  return `<details class="reader-share" data-post-share data-share-url="${escapeMarkup(url)}" data-share-title="${escapeMarkup(title)}"><summary>공유하기</summary><div class="reader-share-options"><p>이 이야기를 함께 나눠요.</p><div class="reader-share-buttons"><button type="button" data-native-share hidden>앱으로 공유</button><button type="button" data-copy-share hidden>링크 복사</button>${links}</div><label class="reader-share-link">게시글 링크<input type="text" value="${escapeMarkup(url)}" readonly aria-label="복사할 게시글 링크"></label><p data-share-status role="status"></p></div></details>`;
 }
 
 export function jsonLd(value: unknown): string {
@@ -80,13 +87,16 @@ interface PageOptions {
   noindex?: boolean;
   status?: number;
   article?: boolean;
+  image?: { url: string; width: number; height: number };
 }
 
 /** body contains markup assembled from escaped values by the route handlers. */
-export function htmlPage({ title, description, body, canonicalPath, schema, noindex = false, status = 200, article = false }: PageOptions): Response {
+export function htmlPage({ title, description, body, canonicalPath, schema, noindex = false, status = 200, article = false, image }: PageOptions): Response {
   const canonical = canonicalPath ? SITE_ORIGIN + canonicalPath : null;
   const safeTitle = escapeMarkup(title);
   const safeDescription = escapeMarkup(excerpt(description, 80));
+  const socialImage = image && image.url.startsWith('/api/community-images/') ? SITE_ORIGIN + image.url : SOCIAL_IMAGE;
+  const socialImageAlt = image ? title : `${SITE_NAME} 직장인 커뮤니티`;
   const nav = BOARD_PAGES.map(board => `<a href="${boardPath(board.slug)}">${escapeMarkup(board.category)}</a>`).join('');
   const document = `<!doctype html>
 <html lang="ko"><head>
@@ -96,10 +106,12 @@ export function htmlPage({ title, description, body, canonicalPath, schema, noin
 ${canonical ? `<link rel="canonical" href="${escapeMarkup(canonical)}"><meta property="og:url" content="${escapeMarkup(canonical)}">` : ''}
 <meta property="og:type" content="${article ? 'article' : 'website'}"><meta property="og:locale" content="ko_KR">
 <meta property="og:site_name" content="${escapeMarkup(SITE_NAME)}"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">
-<meta property="og:image" content="${escapeMarkup(SOCIAL_IMAGE)}"><meta property="og:image:alt" content="${escapeMarkup(SITE_NAME)} 직장인 커뮤니티">
-<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${safeTitle}"><meta name="twitter:description" content="${safeDescription}"><meta name="twitter:image" content="${escapeMarkup(SOCIAL_IMAGE)}">
+<meta property="og:image" content="${escapeMarkup(socialImage)}"><meta property="og:image:alt" content="${escapeMarkup(socialImageAlt)}">${image ? `<meta property="og:image:width" content="${image.width}"><meta property="og:image:height" content="${image.height}">` : ''}
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${safeTitle}"><meta name="twitter:description" content="${safeDescription}"><meta name="twitter:image" content="${escapeMarkup(socialImage)}">
+<meta name="twitter:image:alt" content="${escapeMarkup(socialImageAlt)}">
 <meta name="theme-color" content="#234f39"><link rel="icon" href="${SITE_ORIGIN}/community-favicon.png" type="image/png" sizes="192x192">
 <link rel="alternate" type="application/rss+xml" title="${escapeMarkup(SITE_NAME)} 최신 글" href="${SITE_ORIGIN}/rss.xml"><link rel="stylesheet" href="/community-reader.css">
+${article ? '<script src="/community-share.js" defer></script>' : ''}
 ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
 </head><body><div class="reader-shell">
 <header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 →</a></header>
@@ -110,7 +122,7 @@ ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
   return new Response(document, {
     status,
     headers: { ...baseHeaders, 'Content-Type': 'text/html; charset=utf-8',
-      'Content-Security-Policy': "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       ...(noindex ? { 'X-Robots-Tag': 'noindex, follow' } : {}),
       ...(status === 503 ? { 'Retry-After': '60' } : {}),
     },

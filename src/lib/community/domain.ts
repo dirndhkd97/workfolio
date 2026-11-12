@@ -2,10 +2,12 @@ export const CATEGORIES = ["웃픈 실수", "황당한 순간", "회사 사람�
 export const REACTIONS = ["same", "laugh", "cheer"] as const;
 export type Category = (typeof CATEGORIES)[number];
 export type Reaction = (typeof REACTIONS)[number];
+export interface PostImage { id: string; url: string; width: number; height: number }
 export interface Post {
   id: string;
   title: string;
   body: string;
+  images: PostImage[];
   category: Category;
   nickname: string;
   companyName: string | null;
@@ -43,11 +45,14 @@ export function validPostId(value: unknown): string {
   return value;
 }
 export function validateCreate(data: Record<string, unknown>) {
+  const imageIds = data.imageIds === undefined ? [] : data.imageIds;
+  if (!Array.isArray(imageIds) || imageIds.length > 10 || imageIds.some(id => typeof id !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(id)) || new Set(imageIds).size !== imageIds.length) throw new BoardError("이미지는 최대 10장까지 첨부할 수 있어요. 첨부 상태를 확인해 주세요.");
   if (!CATEGORIES.includes(data.category as Category)) throw new BoardError("이야기 주제를 골라 주세요.");
   if (data.shareCompany !== undefined && typeof data.shareCompany !== "boolean") throw new BoardError("회사 공개 여부를 선택해 주세요.");
   return {
     title: textField(data.title, "제목", LIMITS.title, 2),
-    body: textField(data.body, "이야기", LIMITS.body, 10),
+    body: textField(data.body, "이야기", LIMITS.body, imageIds.length ? 1 : 10),
+    imageIds: imageIds as string[],
     nickname: textField(data.nickname || "익명의 동료", "별명", LIMITS.nickname),
     category: data.category as Category,
     shareCompany: data.shareCompany === true,

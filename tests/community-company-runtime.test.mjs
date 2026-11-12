@@ -42,7 +42,7 @@ before(async () => {
     },
   });
   db = await runtime.getD1Database('DB');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
     const statements = readFileSync(new URL(`migrations/${file}`, root), 'utf8').replace(/--[^\n]*/g, '').split(';').map(sql => sql.trim()).filter(Boolean);
     await db.batch(statements.map(sql => db.prepare(sql)));
   }
