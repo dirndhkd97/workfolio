@@ -4,7 +4,6 @@ const providers = [
   { id: "kakao", name: "카카오", icon: "/auth/kakao-symbol.svg" },
   { id: "naver", name: "네이버", icon: "/auth/naver-icon.png" },
   { id: "google", name: "Google", icon: "/auth/google-g.png" },
-  { id: "apple", name: "Apple", icon: "" },
 ] as const;
 
 type Props = {
@@ -29,11 +28,7 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
           const configured = availableProviders.some((item) => item.id === provider.id && item.configured);
           const content = <>
             <span className="provider-mark" aria-hidden="true">
-              {provider.id === "apple" ? (
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M16.5 12.6c0-2.1 1.7-3.1 1.8-3.2-1-1.5-2.5-1.7-3.1-1.8-1.3-.1-2.5.8-3.2.8-.6 0-1.6-.8-2.7-.7-1.4 0-2.8.9-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.6 2 1-.1 1.5-.7 2.8-.7 1.3 0 1.7.7 2.8.7 1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.2-2.4-.1 0-2.4-.9-2.4-3.3ZM14.4 6.3c.6-.8 1.1-1.9 1-3-.9.1-2 .6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3Z" />
-                </svg>
-              ) : <img src={provider.icon} alt="" width={provider.id === "naver" ? 44 : 20} height={provider.id === "naver" ? 44 : 20} />}
+              <img src={provider.icon} alt="" width={provider.id === "naver" ? 44 : 20} height={provider.id === "naver" ? 44 : 20} />
             </span>
             <span className="provider-label">{provider.name}로 계속하기</span>
             {!configured && <span className="provider-status">{loading ? "확인 중…" : "준비 중"}</span>}
@@ -47,7 +42,7 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
         })}
       </div>
       {error && <div className="login-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>다시 확인</button></div>}
-      {!loading && availableProviders.length > 0 && availableProviders.some((provider) => !provider.configured) && <p className="login-note">‘준비 중’으로 표시된 로그인은 아직 이용할 수 없어요.</p>}
+      {!loading && availableProviders.length > 0 && availableProviders.some((provider) => providers.some((visible) => visible.id === provider.id) && !provider.configured) && <p className="login-note">‘준비 중’으로 표시된 로그인은 아직 이용할 수 없어요.</p>}
       <button type="button" className="guest-continue" onClick={onClose}>
         로그인 없이 둘러보기 <span aria-hidden="true">→</span>
       </button>
