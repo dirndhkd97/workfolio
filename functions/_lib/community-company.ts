@@ -78,13 +78,20 @@ export async function sendCompanyCode(request: Request, env: CommunityCompanyEnv
     form.append('to', email);
     form.append('subject', '[Workfolio] 회사 이메일 인증코드');
     form.append('text', `Workfolio 회사 이메일 인증\n\n${company.name} 인증코드: ${code}\n\n10분 안에 입력해 주세요. 본인이 요청하지 않았다면 이 메일을 무시해 주세요.`);
+    let mailFailure: 'configuration_encoding' | 'network' | 'provider_rejected' = 'configuration_encoding';
+    let mailStatus: number | null = null;
     try {
+      const authorization = 'Basic ' + btoa('api:' + env.MAILGUN_API_KEY.trim());
+      mailFailure = 'network';
       const response = await fetch('https://api.mailgun.net/v3/workfolio.life/messages', {
-        method: 'POST', headers: { Authorization: 'Basic ' + btoa('api:' + env.MAILGUN_API_KEY.trim()) },
+        method: 'POST', headers: { Authorization: authorization },
         body: form, redirect: 'manual', signal: AbortSignal.timeout(8000),
       });
-      if (!response.ok) throw new Error('mail_send_failed');
-    } catch {
+      if (!response.ok) { mailFailure = 'provider_rejected'; mailStatus = response.status; throw new Error('mail_send_failed'); }
+    } catch (error) {
+      const kind = mailFailure === 'network' && error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : mailFailure;
+      // Only local categories and HTTP status: never log recipients, codes, credentials or error/body text.
+      console.error('community_company_mail_failure', { kind, status: mailStatus });
       await env.DB.prepare("UPDATE community_company_challenges SET status = 'failed', code_hash = NULL WHERE id = ? AND status = 'pending'").bind(id).run();
       throw new BoardError('인증 메일을 보내지 못했어요. 잠시 후 다시 요청해 주세요.', 503);
     }

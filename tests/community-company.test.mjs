@@ -18,7 +18,8 @@ compile('functions/_lib/community-company.ts', 'company.mjs', value => value
 globalThis.__companyIdentityForTest = async request => /(?:^|;\s*)test_session=([a-z0-9-]+)/.exec(request.headers.get('Cookie') || '')?.[1] ?? null;
 const company = await import(pathToFileURL(join(directory, 'company.mjs')).href);
 const originalFetch = globalThis.fetch;
-let sqlite, env, messages;
+const originalError = console.error;
+let sqlite, env, messages, diagnostics;
 
 function adapter(connection) {
   let batchTail = Promise.resolve();
@@ -52,6 +53,8 @@ beforeEach(() => {
   for (const id of ['owner', 'visitor', ...Array.from({ length: 6 }, (_, i) => `person-${i}`)]) sqlite.prepare('INSERT INTO community_users VALUES (?, ?, ?)').run(id, id, Date.now());
   env = { DB: adapter(sqlite), MAILGUN_API_KEY: 'not-a-real-key' };
   messages = [];
+  diagnostics = [];
+  console.error = (...args) => diagnostics.push(args);
   globalThis.fetch = async (url, init) => {
     assert.equal(url, 'https://api.mailgun.net/v3/workfolio.life/messages');
     assert.equal(init.redirect, 'manual');
@@ -60,7 +63,7 @@ beforeEach(() => {
     return Response.json({ id: 'test-mail' });
   };
 });
-after(() => { mock.timers.reset(); sqlite?.close(); globalThis.fetch = originalFetch; delete globalThis.__companyIdentityForTest; rmSync(directory, { recursive: true, force: true }); });
+after(() => { mock.timers.reset(); sqlite?.close(); globalThis.fetch = originalFetch; console.error = originalError; delete globalThis.__companyIdentityForTest; rmSync(directory, { recursive: true, force: true }); });
 
 function request(path, data, user = 'owner', headers = {}) {
   return new Request(`https://workfolio.life/api/community-company/${path}`, {
@@ -169,6 +172,57 @@ test('mail failures and redirects do not leave usable codes, and missing configu
   assert.equal(response.status, 503);
   assert.equal((await response.text()).includes('private mail failure'), false);
   assert.equal(storedChallenges().at(-1).status, 'failed');
+});
+
+test('Mailgun rejection logs only a fixed category and status while invalidating the code', async () => {
+  env.MAILGUN_API_KEY = 'private-test-credential';
+  const email = 'private.person@workfolio.life';
+  let code, authorization;
+  globalThis.fetch = async (_url, init) => {
+    messages.push(Object.fromEntries(init.body.entries()));
+    code = lastCode();
+    authorization = new Headers(init.headers).get('Authorization');
+    return Response.json({ message: `private-provider-body ${email} ${code} ${authorization}` }, { status: 403 });
+  };
+  const response = await send(email);
+  assert.equal(response.status, 503);
+  assert.deepEqual(diagnostics, [['community_company_mail_failure', { kind: 'provider_rejected', status: 403 }]]);
+  const body = await response.text(), logs = JSON.stringify(diagnostics);
+  for (const sensitive of [email, code, authorization, env.MAILGUN_API_KEY, 'private-provider-body']) {
+    assert.equal(logs.includes(sensitive), false);
+    assert.equal(body.includes(sensitive), false);
+  }
+  assert.equal(storedChallenges()[0].status, 'failed');
+  assert.equal(storedChallenges()[0].code_hash, null);
+  assert.equal((await verify(code)).status, 400);
+  assert.equal(messages.length, 1);
+});
+
+test('mail timeout, network and credential-encoding failures have distinct safe diagnostics', async () => {
+  for (const [kind, error] of [['timeout', new DOMException('private-timeout-message', 'TimeoutError')], ['network', new Error('private-network-message')]]) {
+    let calls = 0;
+    globalThis.fetch = async () => { calls++; throw error; };
+    const response = await send();
+    assert.equal(response.status, 503);
+    assert.deepEqual(diagnostics.at(-1), ['community_company_mail_failure', { kind, status: null }]);
+    assert.equal((await response.text()).includes(error.message), false);
+    assert.equal(JSON.stringify(diagnostics).includes(error.message), false);
+    assert.equal(storedChallenges().at(-1).status, 'failed');
+    assert.equal(storedChallenges().at(-1).code_hash, null);
+    assert.equal(calls, 1);
+    advance(1);
+  }
+  env.MAILGUN_API_KEY = '잘못된-키';
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return Response.json({}); };
+  const response = await send();
+  assert.equal(response.status, 503);
+  assert.deepEqual(diagnostics.at(-1), ['community_company_mail_failure', { kind: 'configuration_encoding', status: null }]);
+  assert.equal(JSON.stringify(diagnostics).includes(env.MAILGUN_API_KEY), false);
+  assert.equal((await response.text()).includes(env.MAILGUN_API_KEY), false);
+  assert.equal(storedChallenges().at(-1).status, 'failed');
+  assert.equal(storedChallenges().at(-1).code_hash, null);
+  assert.equal(calls, 0);
 });
 
 test('send limits are atomic across concurrent requests and apply to both account and mailbox', async () => {
