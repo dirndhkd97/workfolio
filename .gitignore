@@ -22,3 +22,10 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Cloudflare local credentials and scratch files
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+work/

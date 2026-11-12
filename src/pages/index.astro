@@ -1,26 +1,9 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import Header from '../components/Header.astro';
-import Hero from '../components/Hero.astro';
-import Services from '../components/Services.astro';
-import Process from '../components/Process.astro';
-import Pricing from '../components/Pricing.astro';
-import Portfolio from '../components/Portfolio.astro';
-import FAQ from '../components/FAQ.astro';
-import Contact from '../components/Contact.astro';
-import Footer from '../components/Footer.astro';
+import CommunityLayout from '../layouts/CommunityLayout.astro';
+import Board from '../components/community/Board';
 ---
 
-<Layout>
-  <Header />
-  <main>
-    <Hero />
-    <Services />
-    <Process />
-    <Pricing />
-    <Portfolio />
-    <FAQ />
-    <Contact />
-  </main>
-  <Footer />
-</Layout>
+<CommunityLayout>
+  <Board client:load />
+  <noscript><p style="padding: 2rem; text-align: center">게시글 검색과 댓글 등 커뮤니티 기능을 이용하려면 JavaScript를 켜주세요. 회원가입 없이 둘러볼 수 있습니다.</p></noscript>
+</CommunityLayout>

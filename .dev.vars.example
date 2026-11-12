@@ -1,0 +1,14 @@
+# Copy to .dev.vars for local tests only; never commit actual keys.
+# Production: Cloudflare Pages > workfolio > Settings > Variables and Secrets.
+KAKAO_CLIENT_ID=
+KAKAO_CLIENT_SECRET=
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+APPLE_CLIENT_ID=
+# Use either an Apple client-secret JWT, or the three signing-key fields below.
+APPLE_CLIENT_SECRET=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=

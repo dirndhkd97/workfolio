@@ -1,0 +1,24 @@
+---
+import '../styles/community-base.css';
+import '../styles/community.css';
+const title = 'Workfolio · 퇴근 후, 우리 이야기';
+const description = '일은 했고, 썰은 풀어야지. 빡대가리 게시판부터 월급루팡까지, 직장인의 퇴근 후 커뮤니티. 로그인 없이 읽고, 로그인하면 함께 떠들어요.';
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#234f39" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://workfolio.life/" />
+    <meta property="og:locale" content="ko_KR" />
+    <link rel="canonical" href="https://workfolio.life/" />
+    <link rel="icon" type="image/svg+xml" href="/community-favicon.svg" />
+    <title>{title}</title>
+  </head>
+  <body><slot /></body>
+</html>

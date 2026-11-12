@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: workfolio-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -23,8 +27,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify community permissions and authentication
+        run: |
+          npm run check:community
+          npm run test:community
+
       - name: Build
         run: npm run build
+
+      - name: Apply additive community schema
+        run: |
+          npx wrangler d1 execute DB --remote --file migrations/0005_community_auth.sql
+          npx wrangler d1 execute DB --remote --file migrations/0006_community_board.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Deploy to Cloudflare Pages
         run: npx wrangler pages deploy dist --project-name workfolio --branch main
