@@ -85,12 +85,17 @@ export async function applySchema(query, readMigration = name => readFile(`migra
   }
 }
 
-export async function importRegistry(query, sql) {
+function registryStatements(sql) {
   const statements = splitSql(sql);
   if (!statements.length) throw new Error('Reviewed production company registry is empty.');
   if (statements.some(statement => !/^INSERT INTO community_(companies|company_domains)\b/i.test(statement) || !/ON CONFLICT(?:\(\w+\))? DO NOTHING$/i.test(statement))) {
     throw new Error('Production registry must contain only additive company/domain inserts preserving existing mappings.');
   }
+  return statements;
+}
+
+export async function importRegistry(query, sql) {
+  const statements = registryStatements(sql);
   for (let i = 0; i < statements.length; i += 25) await query(statements.slice(i, i + 25).join(';\n'));
   return statements.length;
 }
@@ -130,6 +135,7 @@ export async function main(mode = process.argv[2]) {
   if (mode === '--preflight') return;
   // Read the reviewed input before any migration, so a missing artifact cannot leave a partial release.
   const registry = await readFile('data/company-registry/production.sql', 'utf8');
+  registryStatements(registry);
   await applySchema(query);
   const importedStatements = await importRegistry(query, registry);
   const after = await inspectDatabase(query);
