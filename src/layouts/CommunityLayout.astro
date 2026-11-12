@@ -29,7 +29,8 @@ const website = { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={SOCIAL_IMAGE} />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" type="image/svg+xml" href="/community-favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href={`${SITE_ORIGIN}/community-favicon.png`} />
+    <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} 최신 글`} href={`${SITE_ORIGIN}/rss.xml`} />
     <title>{title}</title>
     {!noindex && <script type="application/ld+json" set:html={JSON.stringify(website).replace(/</g, '\\u003c')} />}
   </head>

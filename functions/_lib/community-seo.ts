@@ -90,7 +90,8 @@ ${canonical ? `<link rel="canonical" href="${escapeMarkup(canonical)}"><meta pro
 <meta property="og:site_name" content="${escapeMarkup(SITE_NAME)}"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">
 <meta property="og:image" content="${escapeMarkup(SOCIAL_IMAGE)}"><meta property="og:image:alt" content="${escapeMarkup(SITE_NAME)} 직장인 커뮤니티">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${safeTitle}"><meta name="twitter:description" content="${safeDescription}"><meta name="twitter:image" content="${escapeMarkup(SOCIAL_IMAGE)}">
-<meta name="theme-color" content="#234f39"><link rel="icon" href="/community-favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/community-reader.css">
+<meta name="theme-color" content="#234f39"><link rel="icon" href="${SITE_ORIGIN}/community-favicon.png" type="image/png" sizes="192x192">
+<link rel="alternate" type="application/rss+xml" title="${escapeMarkup(SITE_NAME)} 최신 글" href="${SITE_ORIGIN}/rss.xml"><link rel="stylesheet" href="/community-reader.css">
 ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
 </head><body><div class="reader-shell">
 <header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 →</a></header>
