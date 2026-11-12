@@ -79,7 +79,7 @@ interface PageOptions {
 export function htmlPage({ title, description, body, canonicalPath, schema, noindex = false, status = 200, article = false }: PageOptions): Response {
   const canonical = canonicalPath ? SITE_ORIGIN + canonicalPath : null;
   const safeTitle = escapeMarkup(title);
-  const safeDescription = escapeMarkup(description);
+  const safeDescription = escapeMarkup(excerpt(description, 80));
   const nav = BOARD_PAGES.map(board => `<a href="${boardPath(board.slug)}">${escapeMarkup(board.category)}</a>`).join('');
   const document = `<!doctype html>
 <html lang="ko"><head>
