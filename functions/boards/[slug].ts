@@ -16,7 +16,7 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
       .bind(board.category, PAGE_SIZE, (page - 1) * PAGE_SIZE).all<PublicPost>();
     const path = (number: number) => boardPath(board.slug) + (number > 1 ? `?page=${number}` : '');
     const heading = board.title + (page > 1 ? ` · ${page}페이지` : '');
-    const description = board.description + (page > 1 ? ` ${page}페이지의 이야기를 읽어보세요.` : '');
+    const description = (page > 1 ? `${page}페이지 · ` : '') + board.description;
     const body = `<nav class="reader-breadcrumb" aria-label="현재 위치"><a href="/">커뮤니티</a><span aria-hidden="true"> / </span><span>${esc(board.category)}</span></nav>
 <header><p class="reader-kicker">퇴근 후 게시판</p><h1 class="reader-title">${esc(heading)}</h1><p class="reader-description">${esc(board.description)}</p>
 <div class="reader-actions"><a class="reader-primary" href="/?board=${encodeURIComponent(board.slug)}">이 게시판에서 이야기하기</a><span class="reader-meta">실제 이용자 글 ${total?.count ?? 0}개</span></div></header>

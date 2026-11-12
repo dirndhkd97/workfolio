@@ -48,6 +48,6 @@ ${comments.results.length ? comments.results.map(comment => `<article class="rea
 ${count > comments.results.length ? `<p class="reader-notice">댓글 ${count}개 중 먼저 작성된 ${comments.results.length}개를 보여드려요.</p>` : ''}
 <a href="${join}">로그인하고 대화에 참여하기 →</a></section>`;
     return htmlPage({ title: `${sample ? '[가상 예시] ' : ''}${post.title} | ${SITE_NAME}`,
-      description: excerpt(post.body), canonicalPath: postPath(id), body, schema, noindex: Boolean(sample), article: true });
+      description: excerpt(post.body, 80), canonicalPath: postPath(id), body, schema, noindex: Boolean(sample), article: true });
   } catch { return unavailablePage(503); }
 });

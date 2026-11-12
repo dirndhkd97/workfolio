@@ -3,7 +3,7 @@ import type { Category } from './domain';
 export const SITE_ORIGIN = 'https://workfolio.life';
 export const SITE_NAME = '워크폴리오 Workfolio';
 export const HOME_TITLE = '워크폴리오 | 회사 뒷담 · 직장인 익명 커뮤니티';
-export const HOME_DESCRIPTION = '회사 뒷담 갤을 찾는 직장인의 퇴근 후 아지트. 상사 스트레스, 회사 생활 고민, 빡대가리 게시판과 월급루팡 썰까지. 로그인 없이 읽고 별명으로 이야기하는 Workfolio.';
+export const HOME_DESCRIPTION = '회사 뒷담 갤 감성의 직장인 익명 커뮤니티. 상사 스트레스와 웃픈 실수, 월급루팡 썰을 나눠요. 비회원 눈팅은 자유롭게.';
 export const SOCIAL_IMAGE = `${SITE_ORIGIN}/community-og.png`;
 
 export const BOARD_PAGES: { slug: string; category: Category; title: string; description: string }[] = [
