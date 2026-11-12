@@ -46,6 +46,8 @@ The readiness endpoint `/api/community-auth/me` exposes only provider IDs, label
 
 Callback failures emit a `community_oauth_failure` console warning containing only `provider`, a fixed `stage`, `http_status`, and an allowlisted `provider_code`. Use it to distinguish state storage, token requests/responses, token validation, user-info requests/responses, and session storage. Unknown provider errors are represented as `null`; exception messages, response bodies, authorization codes, tokens, secrets and member numbers are never logged. When inspecting Cloudflare tail output, extract only these console fields: raw platform request events may independently contain callback URLs with authorization codes and must not be printed or saved as diagnostic output.
 
+Provider fetches use `redirect: 'manual'` and reject every 3xx response before reading its body. Cloudflare Workers does not implement `redirect: 'error'`; it throws before sending the request. The runtime integration test uses the installed Wrangler/Miniflare workerd runtime with isolated D1 and a response-only outbound mock, verifying both complete Kakao/Naver sign-in and that redirects never forward credentials. See [Cloudflare Request](https://developers.cloudflare.com/workers/runtime-apis/request/).
+
 Official provider setup references:
 
 - Kakao: https://developers.kakao.com/docs/ko/kakaologin/rest-api

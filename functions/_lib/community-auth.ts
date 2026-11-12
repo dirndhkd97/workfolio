@@ -232,9 +232,11 @@ async function providerJson(url: string, init: RequestInit, provider: CommunityP
   diagnostic.stage = `${kind}_request`;
   diagnostic.http_status = null;
   diagnostic.provider_code = null;
-  const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(8000) });
+  // Workers supports only follow/manual; never forward credentials across a redirect.
+  const response = await fetch(url, { ...init, redirect: 'manual', signal: AbortSignal.timeout(8000) });
   diagnostic.stage = `${kind}_response`;
   diagnostic.http_status = response.status;
+  if (response.status >= 300 && response.status < 400) throw new AuthError('login_failed');
   const data = JSON.parse(await limitedText(response, 65536));
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new AuthError('login_failed');
   diagnostic.provider_code = providerErrorCode(provider, data);
