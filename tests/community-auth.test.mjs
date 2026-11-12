@@ -20,9 +20,11 @@ const signingKey = await generateKeyPair('RS256');
 const wrongKey = await generateKeyPair('RS256');
 const publicJwk = { ...await exportJWK(signingKey.publicKey), kid: 'test-key', alg: 'RS256', use: 'sig' };
 const originalFetch = globalThis.fetch;
+const originalWarn = console.warn;
 let sqlite;
 let env;
 let calls;
+let diagnostics;
 
 function adapter(connection) {
   function prepare(sql, args = []) {
@@ -45,11 +47,14 @@ beforeEach(() => {
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(readFileSync(new URL('migrations/0005_community_auth.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0007_community_kakao_events.sql', root), 'utf8'));
   env = { DB: adapter(sqlite) };
   calls = [];
+  diagnostics = [];
+  console.warn = (...values) => diagnostics.push(values);
   globalThis.fetch = async (...args) => { calls.push(args); throw new Error('Unexpected network request'); };
 });
-after(() => { sqlite?.close(); globalThis.fetch = originalFetch; rmSync(directory, { recursive: true, force: true }); });
+after(() => { sqlite?.close(); globalThis.fetch = originalFetch; console.warn = originalWarn; rmSync(directory, { recursive: true, force: true }); });
 
 function configure(provider) {
   env[`${provider.toUpperCase()}_CLIENT_ID`] = `${provider}-client`;
@@ -277,3 +282,41 @@ test('provider cancellation never reflects error descriptions and consumes the f
   assert.equal(calls.length, 0);
   assert.equal(errorCode(await auth.finishCommunityOAuth(callback(flow), env, 'google')), 'invalid_state');
 });
+
+test('OAuth failure diagnostics expose only fixed stages, HTTP status and allowlisted provider codes', async () => {
+  const cases = [
+    { provider: 'kakao', response: () => Response.json({ error: 'invalid_client', error_code: 'KOE010', error_description: 'private-secret-code', access_token: 'private-token', id: 'private-subject' }, { status: 401 }), stage: 'token_response', status: 401, code: 'KOE010' },
+    { provider: 'naver', response: () => Response.json({ error: 'private-secret-code', error_description: 'private-token' }, { status: 400 }), stage: 'token_response', status: 400, code: null },
+    { provider: 'kakao', response: () => new Response('private-token-not-json', { status: 502 }), stage: 'token_response', status: 502, code: null },
+    { provider: 'naver', response: () => { throw new Error('private-token-code-secret-subject'); }, stage: 'token_request', status: null, code: null },
+    { provider: 'naver', response: () => Response.json({ access_token: 'private-token', token_type: 'MAC' }), stage: 'token_validate', status: 200, code: null },
+  ];
+  for (const item of cases) {
+    const flow = await start(item.provider);
+    globalThis.fetch = item.response;
+    const response = await auth.finishCommunityOAuth(callback(flow), env, item.provider);
+    assert.equal(errorCode(response), 'login_failed');
+    assert.deepEqual(diagnostics.at(-1), ['community_oauth_failure', { provider: item.provider, stage: item.stage, http_status: item.status, provider_code: item.code }]);
+    assert.equal(countSessions(), 0);
+  }
+  assert.equal(JSON.stringify(diagnostics).includes('private-'), false);
+});
+
+test('diagnostics distinguish userinfo failure and session storage failure without leaking provider or SQL content', async () => {
+  const denied = await start('naver');
+  globalThis.fetch = async (url) => String(url).endsWith('/token')
+    ? Response.json({ access_token: 'private-token', token_type: 'bearer' })
+    : Response.json({ resultcode: '024', message: 'private-provider-content' }, { status: 401 });
+  assert.equal(errorCode(await auth.finishCommunityOAuth(callback(denied), env, 'naver')), 'login_failed');
+  assert.deepEqual(diagnostics.at(-1), ['community_oauth_failure', { provider: 'naver', stage: 'userinfo_response', http_status: 401, provider_code: '024' }]);
+
+  const failed = await start('kakao');
+  mockUserinfo('kakao');
+  sqlite.exec("CREATE TRIGGER reject_user BEFORE INSERT ON community_users BEGIN SELECT RAISE(ABORT, 'private-database-detail'); END");
+  assert.equal(errorCode(await auth.finishCommunityOAuth(callback(failed), env, 'kakao')), 'login_failed');
+  assert.deepEqual(diagnostics.at(-1), ['community_oauth_failure', { provider: 'kakao', stage: 'session_write', http_status: null, provider_code: null }]);
+  assert.equal(JSON.stringify(diagnostics).includes('private-'), false);
+  assert.equal(countSessions(), 0);
+});
+
+function countSessions() { return sqlite.prepare('SELECT COUNT(*) n FROM community_sessions').get().n; }

@@ -18,6 +18,25 @@ export interface CommunityAuthEnv {
 export type CommunityProvider = 'kakao' | 'naver' | 'google' | 'apple';
 type AuthErrorCode = 'provider_unavailable' | 'invalid_state' | 'provider_denied' | 'login_failed' | 'insecure_origin';
 type OAuthFlow = { state_hash: string; provider: CommunityProvider; browser_hash: string; nonce: string; code_verifier: string | null; redirect_uri: string; return_to: string; expires_at: number };
+type OAuthStage = 'callback_validate' | 'state_lookup' | 'state_claim' | 'authorization_response' | 'client_credentials' | 'token_request' | 'token_response' | 'token_validate' | 'id_token_verify' | 'userinfo_request' | 'userinfo_response' | 'userinfo_validate' | 'session_write';
+type OAuthDiagnostic = { stage: OAuthStage; http_status: number | null; provider_code: string | null };
+
+const OAUTH_ERROR_CODES = new Set(['invalid_request', 'invalid_client', 'invalid_grant', 'unauthorized_client', 'unsupported_grant_type', 'unsupported_response_type', 'invalid_scope', 'access_denied', 'server_error', 'temporarily_unavailable', 'invalid_token']);
+const PROVIDER_ERROR_CODES = {
+  kakao: new Set(['KOE001', 'KOE003', 'KOE004', 'KOE009', 'KOE010', 'KOE101', 'KOE114', 'KOE126', 'KOE127', 'KOE237', 'KOE303', 'KOE310', 'KOE319', 'KOE320', 'KOE322', '-1', '-2', '-3', '-4', '-5', '-9', '-10', '-101', '-102', '-103', '-201', '-402', '-403']),
+  naver: new Set(['024', '028', '403', '404', '500']),
+  google: new Set<string>(),
+  apple: new Set<string>(),
+};
+
+function providerErrorCode(provider: CommunityProvider, data: Record<string, unknown>): string | null {
+  for (const value of [data.error_code, data.error, data.resultcode, data.code]) {
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    const code = String(value);
+    if (PROVIDER_ERROR_CODES[provider].has(code) || OAUTH_ERROR_CODES.has(code)) return code;
+  }
+  return null;
+}
 
 const PROVIDERS = {
   kakao: { label: '카카오', authorization: 'https://kauth.kakao.com/oauth/authorize', token: 'https://kauth.kakao.com/oauth/token', clientId: 'KAKAO_CLIENT_ID', secret: 'KAKAO_CLIENT_SECRET', pkce: true },
@@ -161,6 +180,8 @@ export async function startCommunityOAuth(request: Request, env: CommunityAuthEn
     const returnTo = safeCommunityReturnTo(url.searchParams.get('return_to'));
     await env.DB.batch([
       env.DB.prepare('DELETE FROM community_oauth_flows WHERE expires_at <= ?').bind(Date.now()),
+      env.DB.prepare('DELETE FROM community_kakao_events WHERE expires_at <= ?').bind(Date.now()),
+      env.DB.prepare('UPDATE community_kakao_events SET subject_hash = NULL, occurred_before = NULL, blocked_until = NULL WHERE blocked_until <= ?').bind(Date.now()),
       env.DB.prepare('INSERT INTO community_oauth_flows (state_hash, provider, browser_hash, nonce, code_verifier, redirect_uri, return_to, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .bind(await hash(state), provider, await hash(browser), nonce, verifier, callback, returnTo, Date.now() + FLOW_SECONDS * 1000),
     ]);
@@ -207,11 +228,17 @@ async function limitedText(message: Request | Response, maxBytes: number): Promi
   return new TextDecoder().decode(bytes);
 }
 
-async function providerJson(url: string, init: RequestInit): Promise<Record<string, unknown>> {
+async function providerJson(url: string, init: RequestInit, provider: CommunityProvider, kind: 'token' | 'userinfo', diagnostic: OAuthDiagnostic): Promise<Record<string, unknown>> {
+  diagnostic.stage = `${kind}_request`;
+  diagnostic.http_status = null;
+  diagnostic.provider_code = null;
   const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new AuthError('login_failed');
+  diagnostic.stage = `${kind}_response`;
+  diagnostic.http_status = response.status;
   const data = JSON.parse(await limitedText(response, 65536));
-  if (!data || typeof data !== 'object' || Array.isArray(data) || data.error) throw new AuthError('login_failed');
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new AuthError('login_failed');
+  diagnostic.provider_code = providerErrorCode(provider, data);
+  if (!response.ok || data.error) throw new AuthError('login_failed');
   return data;
 }
 
@@ -229,16 +256,19 @@ function subject(value: unknown): string {
   return value;
 }
 
-async function exchangeIdentity(env: CommunityAuthEnv, flow: OAuthFlow, code: string, state: string): Promise<string> {
+async function exchangeIdentity(env: CommunityAuthEnv, flow: OAuthFlow, code: string, state: string, diagnostic: OAuthDiagnostic): Promise<string> {
+  diagnostic.stage = 'client_credentials';
   const settings = PROVIDERS[flow.provider];
   const clientId = env[settings.clientId]!.trim();
   const secret = flow.provider === 'apple' ? await appleClientSecret(env) : env[settings.secret]!.trim();
   const body = new URLSearchParams({ grant_type: 'authorization_code', client_id: clientId, client_secret: secret, redirect_uri: flow.redirect_uri, code });
   if (flow.code_verifier) body.set('code_verifier', flow.code_verifier);
   if (flow.provider === 'naver' || flow.provider === 'kakao') body.set('state', state);
-  const tokens = await providerJson(settings.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }, body });
+  const tokens = await providerJson(settings.token, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }, body }, flow.provider, 'token', diagnostic);
+  diagnostic.stage = 'token_validate';
   if (flow.provider === 'google' || flow.provider === 'apple') {
     if (typeof tokens.id_token !== 'string' || tokens.id_token.length > 16384) throw new AuthError('login_failed');
+    diagnostic.stage = 'id_token_verify';
     const { payload } = await jwtVerify(tokens.id_token, jwks[flow.provider], {
       issuer: flow.provider === 'google' ? ['https://accounts.google.com', 'accounts.google.com'] : 'https://appleid.apple.com',
       audience: clientId, algorithms: ['RS256'], requiredClaims: ['sub', 'iss', 'aud', 'exp', 'iat', 'nonce'], clockTolerance: 30, maxTokenAge: '10m',
@@ -249,7 +279,8 @@ async function exchangeIdentity(env: CommunityAuthEnv, flow: OAuthFlow, code: st
   if (typeof tokens.access_token !== 'string' || !tokens.access_token || tokens.access_token.length > 8192 || String(tokens.token_type).toLowerCase() !== 'bearer') throw new AuthError('login_failed');
   const profile = await providerJson(flow.provider === 'kakao' ? 'https://kapi.kakao.com/v2/user/me' : 'https://openapi.naver.com/v1/nid/me', {
     method: 'GET', headers: { Authorization: `Bearer ${tokens.access_token}`, Accept: 'application/json' },
-  });
+  }, flow.provider, 'userinfo', diagnostic);
+  diagnostic.stage = 'userinfo_validate';
   if (flow.provider === 'kakao') {
     if (typeof profile.id !== 'number' || !Number.isSafeInteger(profile.id) || profile.id <= 0) throw new AuthError('login_failed');
     return String(profile.id);
@@ -258,23 +289,36 @@ async function exchangeIdentity(env: CommunityAuthEnv, flow: OAuthFlow, code: st
   return subject((profile.response as Record<string, unknown>).id);
 }
 
-async function accountUser(env: CommunityAuthEnv, provider: CommunityProvider, providerSubject: string): Promise<string> {
+async function accountSession(env: CommunityAuthEnv, flow: OAuthFlow, providerSubject: string, oldToken: string | null): Promise<string> {
+  const provider = flow.provider;
   const id = crypto.randomUUID();
+  const token = randomToken();
+  const tokenHash = await hash(token);
   const now = Date.now();
-  // Atomic D1 batch avoids duplicate accounts. Email is never stored or used for linking.
-  await env.DB.batch([
-    env.DB.prepare('INSERT INTO community_users (id, nickname, created_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM community_accounts WHERE provider = ? AND subject = ?)')
-      .bind(id, `퇴근러${randomToken().slice(0, 4)}`, now, provider, providerSubject),
+  if (flow.expires_at <= now) throw new AuthError('invalid_state');
+  const subjectHash = await hash(`${provider}\0${providerSubject}`);
+  const flowStartedAt = flow.expires_at - FLOW_SECONDS * 1000;
+  const allowed = 'NOT EXISTS (SELECT 1 FROM community_kakao_events WHERE subject_hash = ? AND occurred_before >= ? AND blocked_until > ?)';
+  // Account and session creation share one transaction with the unlink watermark check.
+  // A callback started before unlink cannot resurrect its account or issue an orphan session.
+  const statements = [
+    env.DB.prepare(`INSERT INTO community_users (id, nickname, created_at) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM community_accounts WHERE provider = ? AND subject = ?) AND ${allowed}`)
+      .bind(id, `퇴근러${randomToken().slice(0, 4)}`, now, provider, providerSubject, subjectHash, flowStartedAt, now),
     env.DB.prepare('INSERT INTO community_accounts (provider, subject, user_id, created_at) SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM community_users WHERE id = ?) ON CONFLICT(provider, subject) DO NOTHING')
       .bind(provider, providerSubject, id, now, id),
-  ]);
-  const account = await env.DB.prepare('SELECT user_id FROM community_accounts WHERE provider = ? AND subject = ?').bind(provider, providerSubject).first<{ user_id: string }>();
-  if (!account) throw new AuthError('login_failed');
-  return account.user_id;
+    env.DB.prepare(`INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at) SELECT ?, user_id, ?, ? FROM community_accounts WHERE provider = ? AND subject = ? AND ${allowed}`)
+      .bind(tokenHash, now, now + SESSION_SECONDS * 1000, provider, providerSubject, subjectHash, flowStartedAt, now),
+    env.DB.prepare('DELETE FROM community_sessions WHERE expires_at <= ?').bind(now),
+  ];
+  if (oldToken) statements.push(env.DB.prepare('DELETE FROM community_sessions WHERE token_hash = ? AND EXISTS (SELECT 1 FROM community_sessions WHERE token_hash = ?)').bind(await hash(oldToken), tokenHash));
+  const results = await env.DB.batch(statements);
+  if (results[2].meta.changes !== 1) throw new AuthError('login_failed');
+  return token;
 }
 
 export async function finishCommunityOAuth(request: Request, env: CommunityAuthEnv, provider: CommunityProvider): Promise<Response> {
   let returnTo = '/';
+  const diagnostic: OAuthDiagnostic = { stage: 'callback_validate', http_status: null, provider_code: null };
   try {
     const url = secureOrigin(request);
     requireConfigured(env, provider);
@@ -286,29 +330,31 @@ export async function finishCommunityOAuth(request: Request, env: CommunityAuthE
     if (parameters.getAll('state').length !== 1 || !TOKEN_PATTERN.test(state) || !browser) throw new AuthError('invalid_state');
     const stateHash = await hash(state);
     const browserHash = await hash(browser);
+    diagnostic.stage = 'state_lookup';
     const flow = await env.DB.prepare('SELECT * FROM community_oauth_flows WHERE state_hash = ? AND provider = ? AND browser_hash = ? AND expires_at > ?')
       .bind(stateHash, provider, browserHash, Date.now()).first<OAuthFlow>();
     if (!flow || flow.redirect_uri !== `${url.origin}/api/community-auth/${provider}/callback`) throw new AuthError('invalid_state');
     // A conditional delete is the one-time claim, even when callbacks race.
+    diagnostic.stage = 'state_claim';
     const claim = await env.DB.prepare('DELETE FROM community_oauth_flows WHERE state_hash = ? AND provider = ? AND browser_hash = ? AND expires_at > ?')
       .bind(stateHash, provider, browserHash, Date.now()).run();
     if (claim.meta.changes !== 1) throw new AuthError('invalid_state');
     returnTo = safeCommunityReturnTo(flow.return_to);
+    diagnostic.stage = 'authorization_response';
     if (parameters.has('error')) throw new AuthError('provider_denied');
     const code = parameters.get('code');
     if (parameters.getAll('code').length !== 1 || !code || code.length > 4096) throw new AuthError('login_failed');
-    const providerSubject = await exchangeIdentity(env, flow, code, state);
-    const userId = await accountUser(env, provider, providerSubject);
-    const token = randomToken();
+    const providerSubject = await exchangeIdentity(env, flow, code, state, diagnostic);
+    diagnostic.stage = 'session_write';
+    diagnostic.http_status = null;
+    diagnostic.provider_code = null;
     const oldToken = readCookie(request, cookieName(request));
-    const statements = [
-      env.DB.prepare('DELETE FROM community_sessions WHERE expires_at <= ?').bind(Date.now()),
-      env.DB.prepare('INSERT INTO community_sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(await hash(token), userId, Date.now(), Date.now() + SESSION_SECONDS * 1000),
-    ];
-    if (oldToken) statements.push(env.DB.prepare('DELETE FROM community_sessions WHERE token_hash = ?').bind(await hash(oldToken)));
-    await env.DB.batch(statements);
+    const token = await accountSession(env, flow, providerSubject, oldToken);
     return redirect(returnTo, [cookie(request, 'session', token, SESSION_SECONDS), cookie(request, `oauth_${provider}`, '', 0, provider === 'apple')]);
   } catch (error) {
+    // Never log request URLs, headers, bodies, exception messages, tokens, codes or member IDs.
+    // Every field below is a local enum, HTTP status, or explicitly allowlisted provider error.
+    console.warn('community_oauth_failure', { provider, ...diagnostic });
     return errorRedirect(request, provider, error instanceof AuthError ? error.code : 'login_failed', returnTo);
   }
 }

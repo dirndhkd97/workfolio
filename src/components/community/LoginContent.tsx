@@ -1,10 +1,10 @@
 export type LoginProvider = { id: string; label: string; configured: boolean };
 
 const providers = [
-  { id: "kakao", name: "카카오", mark: "●" },
-  { id: "naver", name: "네이버", mark: "N" },
-  { id: "google", name: "Google", mark: "G" },
-  { id: "apple", name: "Apple", mark: "" },
+  { id: "kakao", name: "카카오", icon: "/auth/kakao-symbol.svg" },
+  { id: "naver", name: "네이버", icon: "/auth/naver-icon.png" },
+  { id: "google", name: "Google", icon: "/auth/google-g.png" },
+  { id: "apple", name: "Apple", icon: "" },
 ] as const;
 
 type Props = {
@@ -33,21 +33,21 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                   <path d="M16.5 12.6c0-2.1 1.7-3.1 1.8-3.2-1-1.5-2.5-1.7-3.1-1.8-1.3-.1-2.5.8-3.2.8-.6 0-1.6-.8-2.7-.7-1.4 0-2.8.9-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.6 2 1-.1 1.5-.7 2.8-.7 1.3 0 1.7.7 2.8.7 1.2 0 1.9-1 2.6-2 .8-1.2 1.1-2.3 1.2-2.4-.1 0-2.4-.9-2.4-3.3ZM14.4 6.3c.6-.8 1.1-1.9 1-3-.9.1-2 .6-2.7 1.4-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3Z" />
                 </svg>
-              ) : provider.mark}
+              ) : <img src={provider.icon} alt="" width={provider.id === "naver" ? 44 : 20} height={provider.id === "naver" ? 44 : 20} />}
             </span>
             <span className="provider-label">{provider.name}로 계속하기</span>
-            {!configured && <span className="provider-status">{loading ? "확인 중…" : "연결 설정 필요"}</span>}
+            {!configured && <span className="provider-status">{loading ? "확인 중…" : "준비 중"}</span>}
           </>;
           return configured ? <a
             key={provider.id}
             className={`social-provider ${provider.id}`}
             href={`/api/community-auth/${provider.id}?return_to=${encodeURIComponent(returnTo)}`}
             aria-label={`${provider.name}로 로그인`}
-          >{content}</a> : <button key={provider.id} type="button" className={`social-provider ${provider.id}`} disabled aria-label={`${provider.name} 로그인 — ${loading ? "연결 확인 중" : "연결 설정 필요"}`}>{content}</button>;
+          >{content}</a> : <button key={provider.id} type="button" className={`social-provider ${provider.id}`} disabled aria-label={`${provider.name} 로그인 — ${loading ? "연결 확인 중" : "준비 중"}`}>{content}</button>;
         })}
       </div>
       {error && <div className="login-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>다시 확인</button></div>}
-      {!loading && availableProviders.length > 0 && availableProviders.some((provider) => !provider.configured) && <p className="login-note">‘연결 설정 필요’로 표시된 로그인은 아직 이용할 수 없어요.</p>}
+      {!loading && availableProviders.length > 0 && availableProviders.some((provider) => !provider.configured) && <p className="login-note">‘준비 중’으로 표시된 로그인은 아직 이용할 수 없어요.</p>}
       <button type="button" className="guest-continue" onClick={onClose}>
         로그인 없이 둘러보기 <span aria-hidden="true">→</span>
       </button>
