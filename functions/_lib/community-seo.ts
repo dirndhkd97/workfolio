@@ -96,7 +96,7 @@ ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
 <header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 →</a></header>
 <nav class="reader-nav" aria-label="게시판">${nav}</nav>
 <main id="main" class="reader-main">${body}</main>
-<footer class="reader-footer"><p>회사에선 못한 말, 별명으로 나누는 퇴근 후 아지트.</p><nav aria-label="이용 안내"><a href="/privacy/">개인정보처리방침</a><a href="/terms/">이용약관</a><a href="mailto:contact@workfolio.life">문의</a></nav></footer>
+<footer class="reader-footer"><p>회사에선 못한 말, 별명으로 나누는 퇴근 후 아지트.</p><nav aria-label="이용 안내"><a href="/privacy/">개인정보처리방침</a><a href="/terms/">이용약관</a><!--email_off--><a href="mailto:contact@workfolio.life">문의</a><!--/email_off--></nav></footer>
 </div></body></html>`;
   return new Response(document, {
     status,
