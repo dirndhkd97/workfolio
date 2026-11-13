@@ -34,8 +34,8 @@ export function companyAuthorMarkup(post: Pick<PublicPost, 'company_name' | 'is_
 
 export function postShareMarkup(id: string, title: string): string {
   const url = postShareUrl(id);
-  const links = postShareLinks(id, title).map(item => `<a href="${escapeMarkup(item.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeMarkup(item.name)}에 공유 (새 창)">${escapeMarkup(item.name)}</a>`).join('');
-  return `<details class="reader-share" data-post-share data-share-url="${escapeMarkup(url)}" data-share-title="${escapeMarkup(title)}"><summary>공유하기</summary><div class="reader-share-options"><p>이 이야기를 함께 나눠요.</p><div class="reader-share-buttons"><button type="button" data-native-share hidden>앱으로 공유</button><button type="button" data-copy-share hidden>링크 복사</button>${links}</div><label class="reader-share-link">게시글 링크<input type="text" value="${escapeMarkup(url)}" readonly aria-label="복사할 게시글 링크"></label><p data-share-status role="status"></p></div></details>`;
+  const links = postShareLinks(id, title).map(item => `<a class="reader-share-service reader-share-${item.name.toLowerCase()}" href="${escapeMarkup(item.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeMarkup(item.name)}에 공유 (새 창)"><span class="reader-share-icon"><img src="/share/${item.name.toLowerCase()}.svg" width="32" height="32" alt="" aria-hidden="true"></span><span>${escapeMarkup(item.name)}</span></a>`).join('');
+  return `<details class="reader-share" data-post-share data-share-url="${escapeMarkup(url)}" data-share-title="${escapeMarkup(title)}"><summary>공유하기</summary><div class="reader-share-options"><p class="reader-share-title">이 이야기를 함께 나눠요.</p><div class="reader-share-buttons"><button type="button" data-native-share hidden>앱으로 공유</button><button type="button" data-copy-share hidden>링크 복사</button></div><div class="reader-share-socials" role="group" aria-label="SNS로 공유">${links}</div><label class="reader-share-link">게시글 링크<input type="text" value="${escapeMarkup(url)}" readonly aria-label="복사할 게시글 링크"></label><p data-share-status role="status"></p></div></details>`;
 }
 
 export function jsonLd(value: unknown): string {

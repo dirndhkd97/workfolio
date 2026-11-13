@@ -289,7 +289,8 @@ test('shared photo posts expose only attached images in order and use the first 
   assert.equal(response.status, 200);
   assert.match(html, /property="og:image" content="https:\/\/workfolio\.life\/api\/community-images\/first-image"/);
   assert.match(html, /name="twitter:image" content="https:\/\/workfolio\.life\/api\/community-images\/first-image"/);
-  const imageTags = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
+  const gallery = html.match(/<div class="reader-gallery"[^>]*>(.*?)<\/div>/s)?.[1] ?? '';
+  const imageTags = [...gallery.matchAll(/<img[^>]+src="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(imageTags, ['/api/community-images/first-image', '/api/community-images/second-image']);
   const schema = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
   assert.deepEqual(schema.image, imageTags.map(url => metadata.SITE_ORIGIN + url));

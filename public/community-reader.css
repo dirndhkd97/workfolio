@@ -94,17 +94,26 @@ h1, h2, h3 { line-height: 1.35; letter-spacing: -.035em; }
 .reader-gallery { display: grid; gap: 16px; margin-block: 24px 30px; }
 .reader-gallery a { display: block; border-radius: 10px; overflow: hidden; background: #f5f7f1; }
 .reader-gallery img { display: block; width: 100%; height: auto; object-fit: contain; }
-.reader-share { margin-top: 20px; font-size: 14px; }
+.reader-share { margin-block: 24px; font-size: 14px; }
 .reader-share summary { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--reader-line); border-radius: 8px; color: var(--reader-green); background: #f8faf5; font-weight: 700; cursor: pointer; list-style: none; }
 .reader-share summary::-webkit-details-marker { display: none; }
 .reader-share summary:focus-visible, .reader-share button:focus-visible, .reader-share input:focus-visible { outline: 3px solid var(--reader-green); outline-offset: 3px; }
-.reader-share-options { margin-top: 10px; padding: 16px; border: 1px solid var(--reader-line); border-radius: 10px; background: #f7f9f2; }
-.reader-share-options p { margin: 0 0 10px; }
-.reader-share-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-.reader-share-buttons :is(button,a) { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 12px; border: 1px solid #dbe3d1; border-radius: 7px; background: white; color: var(--reader-green); font: inherit; text-decoration: none; cursor: pointer; }
+.reader-share-options { display: grid; gap: 20px; margin-top: 12px; padding: 20px; border: 1px solid var(--reader-line); border-radius: 14px; background: #f7f9f2; }
+.reader-share-options p { margin: 0; }
+.reader-share-title { color: var(--reader-ink); font-weight: 700; }
+.reader-share-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.reader-share-buttons:not(:has(button:not([hidden]))) { display: none; }
+.reader-share-buttons button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 14px; border: 1px solid #dbe3d1; border-radius: 9px; background: white; color: var(--reader-green); font: inherit; font-weight: 600; cursor: pointer; }
+.reader-share-buttons button:hover { border-color: #aebf9c; background: #eff4e7; }
 .reader-share-buttons [hidden] { display: none; }
-.reader-share-link { display: block; margin-top: 14px; color: var(--reader-muted); font-size: 12px; }
+.reader-share-socials { display: grid; grid-template-columns: repeat(4, minmax(0, 68px)); gap: 16px 8px; padding-top: 20px; border-top: 1px solid var(--reader-line); }
+.reader-share-service { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; border-radius: 12px; color: var(--reader-muted); font-size: 11px; font-weight: 600; line-height: 1.4; text-decoration: none; }
+.reader-share-icon { display: flex; align-items: center; justify-content: center; width: min(56px, 100%); aspect-ratio: 1; border-radius: 15px; background: #000; }
+.reader-share-icon img { display: block; width: 30px; height: 30px; max-width: 60%; }
+.reader-share-facebook .reader-share-icon { background: #0866ff; }
+.reader-share-line .reader-share-icon { background: #06c755; }
+.reader-share-service:hover .reader-share-icon { filter: brightness(.88); }
+.reader-share-link { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--reader-line); color: var(--reader-muted); font-size: 12px; }
 .reader-share-link input { display: block; width: 100%; min-width: 0; padding: 10px; border: 1px solid #becdb3; border-radius: 6px; color: var(--reader-green); background: white; font-size: 16px; }
-.reader-share-options [data-share-status] { margin: 10px 0 0; }
 .reader-share-options [data-share-status]:empty { display: none; }
-@media(max-width: 440px) { .reader-share-buttons :is(button,a) { flex: 1 1 auto; } }
+@media(max-width: 440px) { .reader-share-options { padding: 16px; } .reader-share-buttons button { flex: 1 1 auto; } }
