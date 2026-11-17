@@ -17,6 +17,7 @@
 body { margin: 0; overflow-wrap: anywhere; }
 a { color: var(--reader-green); text-underline-offset: 3px; }
 a:hover { text-decoration-thickness: 2px; }
+.reader-arrow { vertical-align: -.15em; flex-shrink: 0; }
 a:focus-visible { outline: 3px solid var(--reader-green); outline-offset: 4px; border-radius: 3px; }
 h1, h2, h3, p { margin-top: 0; }
 h1, h2, h3 { line-height: 1.35; letter-spacing: -.035em; }
@@ -55,7 +56,7 @@ h1, h2, h3 { line-height: 1.35; letter-spacing: -.035em; }
 .reader-post-item p { color: var(--reader-muted); margin-bottom: 10px; }
 .reader-post-item .reader-meta { margin-bottom: 0; }
 .reader-pagination { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 32px; }
-.reader-pagination a { display: inline-flex; min-height: 44px; align-items: center; padding: 7px 16px; border: 1px solid var(--reader-line); border-radius: 8px; background: #fff; }
+.reader-pagination a { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; padding: 7px 16px; border: 1px solid var(--reader-line); border-radius: 8px; background: #fff; }
 .reader-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-block: 24px 40px; border-top: 1px solid var(--reader-line); color: var(--reader-muted); font-size: 14px; }
 .reader-footer p { margin-bottom: 0; }
 .reader-footer nav { display: flex; flex-wrap: wrap; gap: 12px 20px; }

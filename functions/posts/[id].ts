@@ -1,5 +1,5 @@
 import { SITE_NAME, SITE_ORIGIN, boardForCategory, boardPath, postPath } from '../../src/lib/community/seo';
-import { POST_COLUMNS, REAL_POSTS, companyAuthorMarkup, postShareMarkup, escapeMarkup as esc, excerpt, htmlPage, readOnly, timeMarkup, unavailablePage,
+import { POST_COLUMNS, REAL_POSTS, companyAuthorMarkup, postShareMarkup, escapeMarkup as esc, excerpt, htmlPage, readerArrow, readOnly, timeMarkup, unavailablePage,
   type CommunitySeoEnv, type PublicComment, type PublicPost } from '../_lib/community-seo';
 
 export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params }) => readOnly(request, async () => {
@@ -45,12 +45,12 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
 ${gallery}
 <div class="reader-stats"><span data-view-count title="같은 계정·브라우저의 반복 열람을 제한한 참고용 수치">조회 ${Number.isSafeInteger(post.view_count) && post.view_count >= 0 ? post.view_count : 0}</span><span>좋아요 ${likes?.count ?? 0}</span><span>댓글 ${count}</span></div>
 ${postShareMarkup(post.id, post.title)}
-<div class="reader-actions"><a class="reader-primary" href="${join}">좋아요·댓글 남기기</a>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)} 더 보기 →</a>` : ''}</div>
+<div class="reader-actions"><a class="reader-primary" href="${join}">좋아요·댓글 남기기</a>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)} 더 보기 ${readerArrow('right')}</a>` : ''}</div>
 </article>
 <section class="reader-card reader-comments" aria-labelledby="comments-heading"><h2 id="comments-heading">댓글 ${count}</h2>
 ${comments.results.length ? comments.results.map(comment => `<article class="reader-comment"><div class="reader-meta"><strong>${esc(comment.nickname)}</strong>${timeMarkup(comment.created_at)}</div><p class="reader-body">${esc(comment.body)}</p></article>`).join('') : '<p class="reader-empty">아직 댓글이 없어요. 첫 번째 이야기를 보태주세요.</p>'}
 ${count > comments.results.length ? `<p class="reader-notice">댓글 ${count}개 중 먼저 작성된 ${comments.results.length}개를 보여드려요.</p>` : ''}
-<a href="${join}">로그인하고 대화에 참여하기 →</a></section>`;
+<a href="${join}">로그인하고 대화에 참여하기 ${readerArrow('right')}</a></section>`;
     return htmlPage({ title: `${post.title} | ${SITE_NAME}`,
       description: excerpt(post.body, 80), canonicalPath: postPath(id), body, schema, article: true, image: images[0] });
   } catch { return unavailablePage(503); }

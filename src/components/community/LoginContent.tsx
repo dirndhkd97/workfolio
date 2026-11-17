@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 
 export type LoginProvider = { id: string; label: string; configured: boolean };
 
@@ -52,7 +53,7 @@ export function LoginContent({ onClose, providers: availableProviders, loading, 
       {error && <div className="login-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>다시 확인</button></div>}
       {!loading && availableProviders.length > 0 && availableProviders.some((provider) => providers.some((visible) => visible.id === provider.id) && !provider.configured) && <p className="login-note">‘준비 중’으로 표시된 로그인은 아직 이용할 수 없어요.</p>}
       <button type="button" className="guest-continue" onClick={onClose}>
-        로그인 없이 둘러보기 <span aria-hidden="true">→</span>
+        로그인 없이 둘러보기 <ArrowRight size={16} aria-hidden="true" />
       </button>
       <p className="login-note">로그인한 계정 정보는 게시글에 공개되지 않아요.<br />게시판에서는 직접 정한 별명으로 이야기해요.</p>
       <nav className="community-policy-links login-policy-links" aria-label="로그인 이용 안내">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, Flag, Plus, ShieldCheck, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Flag, Plus, ShieldCheck, Users, X } from 'lucide-react';
 import type { Channel, Post } from '../../lib/community/domain';
 import { channelApi, ChannelApiError, canManageChannel, canRestoreChannelPost, type ChannelPanelTab } from '../../lib/community/channel-client';
 
@@ -72,7 +72,7 @@ export function ChannelsPanel({ tab, manageId, authLoading, signedIn, ownAccount
   return <div className="channels-panel">
     <div className="modal-top"><span className="eyebrow">같은 떡밥, 우리끼리 더 깊게</span><button className="icon-btn" aria-label="채널 닫기" onClick={onClose} disabled={busy}><X /></button></div>
     <h2>우리 채널, 우리 룰.</h2>
-    <p className="modal-subtitle">기본 게시판 3개와는 별개의 모임이에요.<br />개설 신청 → 플랫폼 승인 → 신청자가 직접 관리해요.</p>
+    <p className="modal-subtitle">기본 게시판 3개와는 별개의 모임이에요.<br />플랫폼이 개설 신청을 승인하면 신청자가 직접 관리해요.</p>
     <nav className="channel-tabs" aria-label="채널 메뉴">
       <button aria-current={tab === 'browse' ? 'page' : undefined} onClick={() => onNavigate('browse')} disabled={busy}><Users size={16} />채널 탐색</button>
       <button aria-current={tab === 'mine' ? 'page' : undefined} onClick={() => onNavigate('mine')} disabled={busy}>내 채널</button>
@@ -86,7 +86,7 @@ export function ChannelsPanel({ tab, manageId, authLoading, signedIn, ownAccount
       : loading ? <div className="loading-state" role="status"><div className="loader" />채널을 불러오는 중…</div>
       : readFailed ? <button className="secondary" onClick={() => setRevision(value => value + 1)}>다시 불러오기</button>
       : management ? <>
-        <button className="channel-back" onClick={() => onNavigate('mine')} disabled={busy}>← 내 채널 목록</button>
+        <button className="channel-back" onClick={() => onNavigate('mine')} disabled={busy}><ArrowLeft size={15} aria-hidden="true" />내 채널 목록</button>
         <h3 className="channel-manager-title">{management.channel.name} {moderator ? '운영자 관리' : '관리'}</h3>
         <p className="channel-audit"><ShieldCheck size={17} />{moderator ? '플랫폼 운영 권한으로 관리해요. 플랫폼이 숨긴 글과 비공개 신고를 포함하며, 숨김·복원과 신고 처리 사유는 운영 기록에 남아요.' : '글 숨김·복원과 신고 처리 사유는 운영 기록에 남아요. 채널 관리자는 이 채널의 글만 관리할 수 있고, 플랫폼이 숨긴 글은 복원할 수 없어요.'}</p>
         <section className="channel-report-list"><h4><Flag size={16} />{moderator ? '검토할 신고' : '공유된 신고'} {management.reports.length}건</h4><p>{moderator ? '플랫폼 비공개 신고를 포함한 목록이에요. 신고자 정보는 표시하지 않아요.' : '신고자가 공유에 동의한 사유만 보여요. 신고자 정보는 공개하지 않아요.'}</p>

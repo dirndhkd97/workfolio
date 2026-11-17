@@ -33,6 +33,12 @@ export function companyAuthorMarkup(post: Pick<PublicPost, 'company_name' | 'is_
   return `<span${isAdmin ? ' class="admin-author-badge" aria-label="Workfolio 인증 관리자"' : ''}>${escapeMarkup(label)}</span>`;
 }
 
+// Lucide arrows for the HTML reader. The route can render them without a React runtime.
+export function readerArrow(direction: 'left' | 'right'): string {
+  const path = direction === 'left' ? 'm12 19-7-7 7-7 M19 12H5' : 'M5 12h14 m-7-7 7 7-7 7';
+  return `<svg class="reader-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${path}"/></svg>`;
+}
+
 export function postShareMarkup(id: string, title: string): string {
   const url = postShareUrl(id);
   const links = postShareLinks(id, title).map(item => `<a class="reader-share-service reader-share-${item.name.toLowerCase()}" href="${escapeMarkup(item.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeMarkup(item.name)}에 공유 (새 창)"><span class="reader-share-icon"><img src="/share/${item.name.toLowerCase()}.svg" width="32" height="32" alt="" aria-hidden="true"></span><span>${escapeMarkup(item.name)}</span></a>`).join('');
@@ -115,7 +121,7 @@ ${canonical ? `<link rel="canonical" href="${escapeMarkup(canonical)}"><meta pro
 ${article ? '<script src="/community-share.js" defer></script><script src="/community-views.js" defer></script>' : ''}
 ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
 </head><body><div class="reader-shell">
-<header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 →</a></header>
+<header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 ${readerArrow('right')}</a></header>
 <nav class="reader-nav" aria-label="게시판과 이용자 채널">${nav}<a href="/?channels=browse">채널 탐색</a><a href="/?channels=apply">채널 개설 신청</a></nav>
 <main id="main" class="reader-main">${body}</main>
 <footer class="reader-footer"><p>회사에선 못한 말, 별명으로 나누는 퇴근 후 아지트.</p><nav aria-label="이용 안내"><a href="/privacy/">개인정보처리방침</a><a href="/terms/">이용약관</a><!--email_off--><a href="mailto:contact@workfolio.life">문의</a><!--/email_off--></nav></footer>
