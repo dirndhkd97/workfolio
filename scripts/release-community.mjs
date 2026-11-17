@@ -173,6 +173,20 @@ export async function applySchema(query, readMigration = name => readFile(`migra
   await query(await readMigration('0013_community_notifications.sql'));
   await query(await readMigration('0014_community_like_notifications.sql'));
   await applyBoardSchema(query, await readMigration('0015_community_boards_channels_views.sql'));
+  // These six posts predate the view counter. The historical additions are estimates
+  // based on their existing likes and comments; they do not generate viewer receipts.
+  await query(`WITH historical(post_id, estimated_views) AS (VALUES
+      ('aedf2a94-57c0-4cb4-82b9-370022e18489', 3),
+      ('6f874603-b185-4ad1-b3f2-d247afb22ce2', 3),
+      ('37fee88b-3b70-427a-b3bc-bcccbd3c17dd', 3),
+      ('b7fdd71c-6c5f-4a4d-b12c-2ee161d4d5f9', 3),
+      ('ba7e48a4-d7b2-45e0-a8c8-98ba9fcf9139', 4),
+      ('f7e95ff5-17d0-4948-b8a4-e68af53f22bd', 6)
+    )
+    UPDATE community_posts SET view_count = MIN(6, community_posts.view_count + historical.estimated_views)
+    FROM historical WHERE community_posts.id = historical.post_id
+      AND community_posts.created_at < unixepoch('2026-11-17T01:29:43Z') * 1000
+      AND community_posts.view_count < 3`);
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);
     if (required.some(column => !columns.includes(column))) throw new Error(`Required columns missing in ${table}.`);

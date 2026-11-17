@@ -16,6 +16,40 @@ function adapter(db) {
   });
 }
 
+test('historical view estimates apply once to the six pre-launch posts and preserve subsequent reads', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    const query = adapter(db);
+    await applySchema(query, readMigration);
+    const cutoff = Date.parse('2026-11-17T01:29:43Z');
+    const rows = [
+      ['aedf2a94-57c0-4cb4-82b9-370022e18489', 1, 4],
+      ['6f874603-b185-4ad1-b3f2-d247afb22ce2', 0, 3],
+      ['37fee88b-3b70-427a-b3bc-bcccbd3c17dd', 0, 3],
+      ['b7fdd71c-6c5f-4a4d-b12c-2ee161d4d5f9', 0, 3],
+      ['ba7e48a4-d7b2-45e0-a8c8-98ba9fcf9139', 0, 4],
+      ['f7e95ff5-17d0-4948-b8a4-e68af53f22bd', 0, 6],
+      ['unlisted', 0, 0],
+    ];
+    const insert = db.prepare(`INSERT INTO community_posts
+      (id, owner_id, title, body, nickname, category, created_at, view_count)
+      VALUES (?, 'owner', 'title', 'body', 'author', '월급루팡', ?, ?)`);
+    const count = id => db.prepare('SELECT view_count FROM community_posts WHERE id = ?').get(id).view_count;
+    for (const [id, before] of rows) insert.run(id, cutoff - 1000, before);
+    await applySchema(query, readMigration);
+    for (const [id, , expected] of rows) assert.equal(count(id), expected);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM community_view_receipts').get().n, 0);
+    db.prepare('UPDATE community_posts SET view_count = view_count + 1 WHERE id = ?').run(rows[0][0]);
+    await applySchema(query, readMigration);
+    assert.equal(count(rows[0][0]), 5);
+    for (const [id, , expected] of rows.slice(1)) assert.equal(count(id), expected);
+    db.prepare('DELETE FROM community_posts WHERE id = ?').run(rows[1][0]);
+    insert.run(rows[1][0], cutoff, 0);
+    await applySchema(query, readMigration);
+    assert.equal(count(rows[1][0]), 0);
+  } finally { db.close(); }
+});
+
 test('preflight accepts redacted secret metadata and rejects missing mail or wrong production targets', () => {
   assert.equal(checkProject(project).mailgunConfigured, true);
   const missing = structuredClone(project);
