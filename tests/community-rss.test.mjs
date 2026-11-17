@@ -34,6 +34,7 @@ beforeEach(() => {
   sqlite = new DatabaseSync(':memory:');
   // No account or session tables exist: the feed must work with only public board data.
   sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0014_community_boards_channels_views.sql', root), 'utf8'));
   statements = [];
   env = { DB: { prepare(sql) {
     assert.match(sql, /^SELECT\b/i, 'RSS must only read D1');
@@ -155,4 +156,14 @@ test('D1 failures return retryable noindex 503 XML without storage diagnostics',
     if (method === 'HEAD') assert.equal(body, '');
     else assert.equal(parse(body).name, 'error');
   }
+});
+
+
+test('RSS excludes hidden posts and posts in an inactive or missing channel', async () => {
+  seed('public-visible'); seed('private-hidden'); seed('closed-channel');
+  sqlite.prepare("UPDATE community_posts SET status = 'hidden' WHERE id = ?").run('private-hidden');
+  sqlite.prepare("UPDATE community_posts SET channel_id = 'missing-channel' WHERE id = ?").run('closed-channel');
+  const xml = await (await request()).text();
+  assert.match(xml,/public-visible/);
+  assert.doesNotMatch(xml,/private-hidden|closed-channel/);
 });

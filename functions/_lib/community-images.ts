@@ -1,3 +1,4 @@
+import { PUBLIC_POST_SQL } from './community-channels';
 import { getCommunityIdentity, type CommunityAuthEnv } from './community-auth';
 import { BoardError, checkMutationRequest, type PostImage } from '../../src/lib/community/domain';
 
@@ -12,7 +13,7 @@ export function publicImage(row: Pick<StoredImage, 'id' | 'width' | 'height'>): 
 }
 export async function readPostImages(db: D1Database, postId: string): Promise<PostImage[]> {
   const rows = await db.prepare(`SELECT i.id, i.width, i.height FROM community_post_images i
-    JOIN community_posts p ON p.id = i.post_id WHERE i.post_id = ? AND i.status = 'attached' ORDER BY i.position, i.id`).bind(postId).all<StoredImage>();
+    JOIN community_posts p ON p.id = i.post_id WHERE i.post_id = ? AND i.status = 'attached' AND ${PUBLIC_POST_SQL} ORDER BY i.position, i.id`).bind(postId).all<StoredImage>();
   return rows.results.map(publicImage);
 }
 function json(data: unknown, status = 200) {
@@ -159,7 +160,7 @@ export async function uploadImage(request: Request, env: CommunityImageEnv): Pro
 }
 export async function serveImage(request: Request, env: CommunityImageEnv, value: unknown): Promise<Response> {
   const id = imageId(value), bucket = storage(env);
-  const row = await env.DB.prepare(`SELECT i.*, EXISTS (SELECT 1 FROM community_posts p WHERE p.id = i.post_id) AS live_post FROM community_post_images i WHERE i.id = ?`).bind(id).first<StoredImage & {live_post:number}>();
+  const row = await env.DB.prepare(`SELECT i.*, EXISTS (SELECT 1 FROM community_posts p WHERE p.id = i.post_id AND ${PUBLIC_POST_SQL}) AS live_post FROM community_post_images i WHERE i.id = ?`).bind(id).first<StoredImage & {live_post:number}>();
   const published = row?.status === 'attached' && row.live_post === 1;
   if (!row || (!published && !(row.status === 'pending' && row.expires_at > Date.now() && row.owner_id === await getCommunityIdentity(request,env)))) throw new BoardError('이미지를 찾을 수 없어요.',404);
   const object = await bucket.get(row.object_key);

@@ -6,19 +6,26 @@ import { pathToFileURL } from 'node:url';
 const ACCOUNT = 'ae40d286be880d4faf549a14530875dc';
 const DATABASE = '070de128-ce30-40d1-9ba2-bc00e08cc073';
 const PROJECT = 'workfolio';
-const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges', 'community_post_images', 'community_image_upload_limits'];
+const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges', 'community_post_images', 'community_image_upload_limits', 'community_channels', 'community_channel_audit', 'community_channel_limits', 'community_view_visitors', 'community_view_receipts', 'community_view_limits'];
 const REQUIRED = {
   community_sessions: ['token_hash', 'user_id', 'created_at', 'expires_at', 'remember_me'],
   community_oauth_flows: ['state_hash', 'provider', 'browser_hash', 'nonce', 'code_verifier', 'redirect_uri', 'return_to', 'expires_at', 'remember_me'],
-  community_posts: ['id', 'owner_id', 'title', 'body', 'category', 'nickname', 'created_at', 'company_name', 'is_admin_author'],
+  community_posts: ['id', 'owner_id', 'title', 'body', 'category', 'nickname', 'created_at', 'company_name', 'is_admin_author', 'original_category', 'status', 'channel_id', 'hidden_by_scope', 'view_count'],
   community_companies: ['id', 'name'],
   community_company_domains: ['domain', 'company_id'],
   community_company_verifications: ['user_id', 'company_id', 'email_hash', 'verified_at', 'expires_at', 'domain'],
   community_company_challenges: ['id', 'user_id', 'company_id', 'domain', 'email_hash', 'code_hash', 'created_at', 'expires_at', 'attempts', 'status', 'claim_token'],
   community_post_images: ['id', 'owner_id', 'object_key', 'post_id', 'status', 'position', 'content_type', 'byte_size', 'width', 'height', 'created_at', 'expires_at'],
   community_image_upload_limits: ['owner_id', 'window_started_at', 'attempts'],
+  community_reports: ['post_id', 'owner_id', 'reason', 'created_at', 'share_with_channel', 'dismissed_at', 'channel_dismissed_at'],
+  community_channels: ['id', 'owner_id', 'name', 'normalized_name', 'description', 'rules', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'review_note'],
+  community_channel_audit: ['id', 'channel_id', 'post_id', 'actor_id', 'applicant_id', 'action', 'previous_state', 'next_state', 'note', 'created_at'],
+  community_channel_limits: ['key', 'window_started_at', 'attempts'],
+  community_view_visitors: ['visitor_key', 'expires_at'],
+  community_view_receipts: ['post_id', 'viewer_key', 'counted_at', 'claim_id'],
+  community_view_limits: ['key', 'window_started_at', 'attempts'],
 };
-// This is the only data UPDATE accepted alongside the additive schema migrations.
+// Exact reviewed data updates accepted alongside additive schema migrations.
 const VERIFIED_DOMAIN_BACKFILL = `WITH proven_company_domains AS (
   SELECT v.user_id, MIN(c.domain) AS domain
   FROM community_company_verifications AS v
@@ -48,7 +55,11 @@ export function splitSql(sql) {
       }
     } else if (char === '-' && sql[i + 1] === '-') { comment = true; i++; }
     else if (char === "'" || char === '"') { quote = char; statement += char; }
-    else if (char === ';') { if (statement.trim()) statements.push(statement.trim()); statement = ''; }
+    else if (char === ';') {
+      // SQLite trigger bodies terminate their inner statements before the final END.
+      if (/^\s*CREATE TRIGGER\b/i.test(statement) && !/;\s*END\s*$/i.test(statement)) statement += char;
+      else { if (statement.trim()) statements.push(statement.trim()); statement = ''; }
+    }
     else statement += char;
   }
   if (quote) throw new Error('Unterminated SQL literal in release file.');
@@ -71,7 +82,9 @@ export function checkProject(project) {
   const configured = mail?.type === 'secret_text' || (mail?.type === 'plain_text' && typeof mail.value === 'string' && mail.value.trim().length > 0);
   if (!configured) throw new Error('Production MAILGUN_API_KEY is missing. No schema changes or deployment were performed.');
   if (production?.d1_databases?.DB?.id !== DATABASE) throw new Error('Production DB binding does not match the expected D1 database.');
-  return { project: PROJECT, productionBranch: 'main', mailgunConfigured: true, databaseBindingMatches: true };
+  const moderators = production?.env_vars?.COMMUNITY_MODERATOR_USER_IDS;
+  const communityModeratorConfigured = moderators?.type === 'secret_text' || (moderators?.type === 'plain_text' && typeof moderators.value === 'string' && moderators.value.trim().length > 0);
+  return { project: PROJECT, productionBranch: 'main', mailgunConfigured: true, databaseBindingMatches: true, communityModeratorConfigured };
 }
 
 export async function inspectDatabase(query) {
@@ -82,6 +95,59 @@ export async function inspectDatabase(query) {
     counts[table] = (await query(`SELECT COUNT(*) AS count FROM ${table}`))[0].results[0].count;
   }
   return { schema, counts };
+}
+
+const BOARD_ALTERS = new Set([
+  "ALTER TABLE community_posts ADD COLUMN original_category TEXT",
+  "ALTER TABLE community_posts ADD COLUMN status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published','hidden'))",
+  "ALTER TABLE community_posts ADD COLUMN channel_id TEXT",
+  "ALTER TABLE community_posts ADD COLUMN hidden_by_scope TEXT CHECK (hidden_by_scope IN ('platform','channel'))",
+  "ALTER TABLE community_posts ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0)",
+  "ALTER TABLE community_reports ADD COLUMN share_with_channel INTEGER NOT NULL DEFAULT 0 CHECK (share_with_channel IN (0,1))",
+  "ALTER TABLE community_reports ADD COLUMN dismissed_at INTEGER",
+  "ALTER TABLE community_reports ADD COLUMN channel_dismissed_at INTEGER",
+]);
+const BOARD_UPDATES = new Set([
+  "UPDATE community_posts SET original_category = COALESCE(original_category, category), category = CASE WHEN category IN ('웃픈 실수','황당한 순간','회사 사람들','웃픈실수','황당한순간','회사사람들') THEN '빡대가리 게시판' WHEN category IN ('소소한 일상','소소한일상') THEN '월급루팡' ELSE category END WHERE original_category IS NULL OR category IN ('웃픈 실수','황당한 순간','회사 사람들','웃픈실수','황당한순간','회사사람들','소소한 일상','소소한일상')",
+]);
+const BOARD_CREATES = new Set([
+  "CREATE TRIGGER IF NOT EXISTS community_posts_legacy_insert AFTER INSERT ON community_posts WHEN NEW.original_category IS NULL BEGIN UPDATE community_posts SET original_category = category, category = CASE WHEN category IN ('웃픈 실수','황당한 순간','회사 사람들','웃픈실수','황당한순간','회사사람들') THEN '빡대가리 게시판' WHEN category IN ('소소한 일상','소소한일상') THEN '월급루팡' ELSE category END WHERE id = NEW.id; END",
+  "CREATE TABLE IF NOT EXISTS community_channels ( id TEXT PRIMARY KEY NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL, normalized_name TEXT NOT NULL, description TEXT NOT NULL, rules TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','rejected')), created_at INTEGER NOT NULL, reviewed_at INTEGER, reviewed_by TEXT, review_note TEXT NOT NULL DEFAULT '' )",
+  "CREATE UNIQUE INDEX IF NOT EXISTS community_channels_name ON community_channels(normalized_name) WHERE status IN ('pending','active')",
+  "CREATE UNIQUE INDEX IF NOT EXISTS community_channels_pending_owner ON community_channels(owner_id) WHERE status = 'pending'",
+  "CREATE INDEX IF NOT EXISTS community_channels_owner ON community_channels(owner_id,status,created_at)",
+  "CREATE INDEX IF NOT EXISTS community_posts_visible ON community_posts(status,channel_id,created_at)",
+  "CREATE TABLE IF NOT EXISTS community_channel_audit ( id TEXT PRIMARY KEY NOT NULL, channel_id TEXT NOT NULL, post_id TEXT, actor_id TEXT NOT NULL, applicant_id TEXT NOT NULL, action TEXT NOT NULL, previous_state TEXT, next_state TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS community_channel_audit_channel ON community_channel_audit(channel_id,created_at)",
+  "CREATE TABLE IF NOT EXISTS community_channel_limits ( key TEXT PRIMARY KEY NOT NULL, window_started_at INTEGER NOT NULL, attempts INTEGER NOT NULL )",
+  "CREATE TABLE IF NOT EXISTS community_view_visitors ( visitor_key TEXT PRIMARY KEY NOT NULL, expires_at INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS community_view_visitors_expiry ON community_view_visitors(expires_at)",
+  "CREATE TABLE IF NOT EXISTS community_view_receipts ( post_id TEXT NOT NULL, viewer_key TEXT NOT NULL, counted_at INTEGER NOT NULL, claim_id TEXT NOT NULL, PRIMARY KEY(post_id,viewer_key) )",
+  "CREATE INDEX IF NOT EXISTS community_view_receipts_expiry ON community_view_receipts(counted_at)",
+  "CREATE TABLE IF NOT EXISTS community_view_limits ( key TEXT PRIMARY KEY NOT NULL, window_started_at INTEGER NOT NULL, attempts INTEGER NOT NULL )",
+  "CREATE INDEX IF NOT EXISTS community_view_limits_expiry ON community_view_limits(window_started_at)"
+]);
+export async function applyBoardSchema(query, sql) {
+  const statements = splitSql(sql);
+  // Validate the complete migration before the first write. No arbitrary UPDATE or destructive SQL.
+  for (const statement of statements) {
+    const normalized = statement.replace(/\s+/g, ' ');
+    if (!BOARD_ALTERS.has(normalized) && !BOARD_UPDATES.has(normalized)
+        && !BOARD_CREATES.has(normalized)) throw new Error('Unexpected statement in board/channel migration.');
+  }
+  const before = (await query('SELECT COUNT(*) AS count FROM community_posts'))[0].results[0].count;
+  for (const statement of statements) {
+    const alter = /^ALTER TABLE (community_posts|community_reports) ADD COLUMN (\w+)\b/.exec(statement);
+    if (alter) {
+      const columns = (await query(`PRAGMA table_info(${alter[1]})`))[0].results;
+      if (columns.some(row => row.name === alter[2])) continue;
+    }
+    await query(statement);
+  }
+  const after = (await query('SELECT COUNT(*) AS count FROM community_posts'))[0].results[0].count;
+  if (after < before) throw new Error('Community post count decreased during migration; investigate before deploying.');
+  const legacy = (await query("SELECT COUNT(*) AS count FROM community_posts WHERE category IN ('웃픈 실수','황당한 순간','회사 사람들','웃픈실수','황당한순간','회사사람들','소소한 일상','소소한일상') OR original_category IS NULL"))[0].results[0].count;
+  if (legacy) throw new Error('Community category backfill is incomplete.');
 }
 
 export async function applySchema(query, readMigration = name => readFile(`migrations/${name}`, 'utf8')) {
@@ -100,6 +166,7 @@ export async function applySchema(query, readMigration = name => readFile(`migra
     }
   }
   await query(await readMigration('0012_community_post_images.sql'));
+  await applyBoardSchema(query, await readMigration('0014_community_boards_channels_views.sql'));
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);
     if (required.some(column => !columns.includes(column))) throw new Error(`Required columns missing in ${table}.`);
@@ -160,6 +227,9 @@ export async function main(mode = process.argv[2]) {
   await applySchema(query);
   const importedStatements = await importRegistry(query, registry);
   const after = await inspectDatabase(query);
+  for (const table of ['community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_post_images']) {
+    if (after.counts[table] < (before.counts[table] || 0)) throw new Error(`Data count decreased in ${table}; investigate before deploying.`);
+  }
   await saveReport('applied', { appliedAt: new Date().toISOString(), importedStatements, beforeCounts: before.counts, ...after });
   console.log(JSON.stringify({ stage: 'schema-and-registry-applied', importedStatements, counts: after.counts }));
 }

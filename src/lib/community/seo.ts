@@ -7,13 +7,16 @@ export const HOME_DESCRIPTION = '회사 뒷담 갤 감성의 직장인 익명 �
 export const SOCIAL_IMAGE = `${SITE_ORIGIN}/community-og.png`;
 
 export const BOARD_PAGES: { slug: string; category: Category; title: string; description: string }[] = [
-  { slug: 'brain-off', category: '빡대가리 게시판', title: '빡대가리 게시판 · 직장인 실수 썰', description: '첨부파일 없는 메일부터 음소거 사고까지. 오늘 회사에서 한 실수와 흑역사를 별명으로 털어놓고 같이 웃는 직장인 게시판.' },
-  { slug: 'salary-lupin', category: '월급루팡', title: '월급루팡 · 직장인 딴짓과 퇴근 잡담', description: '퇴근까지 남은 시간, 월급날 이야기, 일하다 잠깐 쉬어가는 잡담. 회사 생활에 지친 직장인들의 월급루팡 게시판.' },
-  { slug: 'office-people', category: '회사 사람들', title: '회사 뒷담 · 상사와 동료 이야기', description: '상사 스트레스부터 동료와의 웃픈 에피소드까지. 회사에서 못 한 뒷담과 인간관계 고민을 개인을 특정하지 않고 나누는 회사 사람들 게시판.' },
-  { slug: 'funny-mistakes', category: '웃픈 실수', title: '웃픈 실수 · 회사 생활 흑역사', description: '회의, 메신저, 메일에서 터진 웃픈 실수. 그땐 아찔했지만 이제는 웃으며 풀 수 있는 회사 생활 흑역사와 공감을 나눠요.' },
-  { slug: 'absurd-moments', category: '황당한 순간', title: '황당한 순간 · 회사에서 생긴 일', description: '끝없는 회의와 이해하기 어려운 회사 문화. 직장에서 겪은 황당한 순간과 회사 뒷이야기를 별명으로 나눠요.' },
-  { slug: 'daily-life', category: '소소한 일상', title: '소소한 일상 · 직장인 퇴근 후 이야기', description: '출근길 커피부터 퇴근 후 취미와 월급날 기쁨까지. 회사 밖에서도 이어지는 직장인의 소소한 일상과 잡담을 나눠요.' },
+  { slug: 'brain-off', category: '빡대가리 게시판', title: '빡대가리 게시판 · 내 실수와 회사 뒷담', description: '내가 왜 그랬지… 쟤는 또 왜 저래? 내 흑역사부터 답답한 동료, 황당한 회사 썰까지. 누군지 특정할 정보는 빼고 속 시원하게 풀어요.' },
+  { slug: 'salary-lupin', category: '월급루팡', title: '월급루팡 · 직장인 일상과 잡담', description: '사장님, 저 지금 일하고 있어요. 점심 메뉴, 퇴근 카운트다운, 웃긴 짤과 소소한 일상까지. 잠깐 딴짓할 동료를 찾는 게시판.' },
+  { slug: 'quit-advice', category: '퇴사각 상담소', title: '퇴사각 상담소 · 이직과 회사 생활 고민', description: '사직서는 임시저장. 일단 여기 물어봐. 인간관계, 이직, 퇴사 고민부터 회사 생활 조언까지. 신상은 지키고 서로의 경험을 나눠요.' },
 ];
+
+/** Old board links survive consolidation without creating duplicate boards. */
+export const LEGACY_BOARD_SLUGS: Readonly<Record<string, string>> = {
+  'office-people': 'brain-off', 'funny-mistakes': 'brain-off', 'absurd-moments': 'brain-off', 'daily-life': 'salary-lupin',
+};
+export const boardForSlug = (slug: string) => BOARD_PAGES.find(board => board.slug === (Object.hasOwn(LEGACY_BOARD_SLUGS, slug) ? LEGACY_BOARD_SLUGS[slug] : slug));
 
 export const boardPath = (slug: string) => `/boards/${slug}`;
 // Shared by the generated compatibility sitemap and the explicit Pages endpoint.

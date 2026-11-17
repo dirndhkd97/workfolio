@@ -1,10 +1,10 @@
-import { BOARD_PAGES, boardForCategory } from '../../lib/community/seo';
+import { boardForSlug, boardForCategory } from '../../lib/community/seo';
 
 export type FeedSort = 'latest' | 'trending' | 'popular';
 export type FeedNavigation = { topic: string; sort: FeedSort };
 
 export function readFeedNavigation(url: URL): FeedNavigation {
-  const board = BOARD_PAGES.find(item => item.slug === url.searchParams.get('board'));
+  const board = boardForSlug(url.searchParams.get('board') ?? '');
   const requestedSort = url.searchParams.get('sort');
   return {
     topic: board?.category ?? '전체 이야기',

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { Log, LogLevel, Miniflare } from 'miniflare';
+import { splitSql } from '../scripts/release-community.mjs';
 
 // Run authentication, company proof, posts and D1 together in workerd. Mail never leaves the test.
 const root = new URL('../', import.meta.url);
@@ -12,7 +13,7 @@ const token = 'a'.repeat(43);
 const cookie = `__Host-community_session=${token}`;
 const messages = [];
 const outgoingFailures = [];
-const draft = { action: 'create', title: '오늘의 회사 이야기', body: '동료가 전해 준 따뜻한 말 덕분에 기분 좋게 퇴근했어요.', category: '회사 사람들', nickname: '퇴근하는 동료' };
+const draft = { action: 'create', title: '오늘의 회사 이야기', body: '동료가 전해 준 따뜻한 말 덕분에 기분 좋게 퇴근했어요.', category: '빡대가리 게시판', nickname: '퇴근하는 동료' };
 
 before(async () => {
   const bundled = await build({
@@ -42,8 +43,8 @@ before(async () => {
     },
   });
   db = await runtime.getD1Database('DB');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
-    const statements = readFileSync(new URL(`migrations/${file}`, root), 'utf8').replace(/--[^\n]*/g, '').split(';').map(sql => sql.trim()).filter(Boolean);
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0007_community_kakao_events.sql', '0008_community_session_persistence.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0014_community_boards_channels_views.sql']) {
+    const statements = splitSql(readFileSync(new URL(`migrations/${file}`, root), 'utf8'));
     await db.batch(statements.map(sql => db.prepare(sql)));
   }
   const tokenHash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))).toString('base64url');

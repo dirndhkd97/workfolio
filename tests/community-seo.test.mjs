@@ -38,7 +38,7 @@ let env;
 beforeEach(() => {
   sqlite?.close();
   sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0014_community_boards_channels_views.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`, root), 'utf8'));
   }
   statements = [];
@@ -57,7 +57,7 @@ after(() => { sqlite?.close(); rmSync(directory, { recursive: true, force: true 
 
 const createdAt = Date.UTC(2026, 10, 12);
 function seed(id, values = {}) {
-  const row = { title: '퇴근 후 이야기', body: '첫 줄 이야기\n둘째 줄 이야기', category: '회사 사람들', nickname: '익명의 동료', createdAt, ...values };
+  const row = { title: '퇴근 후 이야기', body: '첫 줄 이야기\n둘째 줄 이야기', category: '빡대가리 게시판', nickname: '익명의 동료', createdAt, ...values };
   sqlite.prepare('INSERT INTO community_posts (id, owner_id, title, body, category, nickname, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(id, 'private-owner-never-publish', row.title, row.body, row.category, row.nickname, row.createdAt);
   return row;
@@ -96,7 +96,7 @@ test('article and board readers show 관리자 only for a public admin snapshot,
     else assert.doesNotMatch(author,/>Workfolio(?:\s|·|<)/);
     assert.doesNotMatch(html,/private-owner-never-publish|workfolio\.life<\/span>|email_hash|company_id/);
   }
-  const html = await (await request(board, '/boards/office-people', {slug:'office-people'})).text();
+  const html = await (await request(board, '/boards/brain-off', {slug:'brain-off'})).text();
   for (const [id, , , label] of cases) {
     const card = [...html.matchAll(/<article class="reader-card reader-post-item">([\s\S]*?)<\/article>/g)].find(match=>match[1].includes(`/posts/${id}"`))?.[1];
     assert.ok(card,id);
@@ -164,7 +164,7 @@ test('missing pages return 404 while D1 errors return retryable noindex 503 with
   }
   assert.equal((await request(board, '/boards/missing', { slug: 'missing' })).status, 404);
   env.DB = { prepare() { throw new Error('secret DB connection diagnostic'); } };
-  for (const [route, path, params] of [[post, '/posts/post', { id: 'post' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}]]) {
+  for (const [route, path, params] of [[post, '/posts/post', { id: 'post' }], [board, '/boards/brain-off', { slug: 'brain-off' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}]]) {
     const response = await request(route, path, params);
     assert.equal(response.status, 503);
     assert.equal(response.headers.get('Retry-After'), '60');
@@ -175,7 +175,7 @@ test('missing pages return 404 while D1 errors return retryable noindex 503 with
 
 test('all reader endpoints reject mutations before accessing D1 and support empty HEAD responses', async () => {
   seed('head-post');
-  for (const [route, path, params] of [[post, '/posts/head-post', { id: 'head-post' }], [board, '/boards/office-people', { slug: 'office-people' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}], [pagesSitemap, '/sitemap-pages.xml', {}]]) {
+  for (const [route, path, params] of [[post, '/posts/head-post', { id: 'head-post' }], [board, '/boards/brain-off', { slug: 'brain-off' }], [index, '/sitemap.xml', {}], [sitemap, '/sitemap-posts.xml', {}], [pagesSitemap, '/sitemap-pages.xml', {}]]) {
     const before = statements.length;
     const rejected = await request(route, path, params, 'POST');
     assert.equal(rejected.status, 405);
@@ -192,18 +192,18 @@ test('board pages expose only real category posts with crawlable links and self-
   for (let number = 1; number <= 31; number++) seed(`post-${String(number).padStart(2, '0')}`, { createdAt: createdAt + number });
   seed('other-category', { category: '월급루팡' });
   seed('sample-stored');
-  const first = await (await request(board, '/boards/office-people', { slug: 'office-people' })).text();
+  const first = await (await request(board, '/boards/brain-off', { slug: 'brain-off' })).text();
   assert.equal([...first.matchAll(/<h2><a href="\/posts\//g)].length, 30);
   assert.match(first, /href="\/posts\/post-31"/);
   assert.doesNotMatch(first, /\/posts\/(?:other-category|sample-stored|post-01)"/);
-  assert.match(first, /href="\/boards\/office-people\?page=2"/);
-  const second = await (await request(board, '/boards/office-people?page=2', { slug: 'office-people' })).text();
+  assert.match(first, /href="\/boards\/brain-off\?page=2"/);
+  const second = await (await request(board, '/boards/brain-off?page=2', { slug: 'brain-off' })).text();
   assert.equal([...second.matchAll(/<h2><a href="\/posts\//g)].length, 1);
   assert.match(second, /href="\/posts\/post-01"/);
-  assert.match(second, /rel="canonical" href="https:\/\/workfolio\.life\/boards\/office-people\?page=2"/);
-  assert.match(second, /rel="prev" href="\/boards\/office-people"/);
+  assert.match(second, /rel="canonical" href="https:\/\/workfolio\.life\/boards\/brain-off\?page=2"/);
+  assert.match(second, /rel="prev" href="\/boards\/brain-off"/);
   for (const query of ['?page=0', '?page=-1', '?page=1.5', '?page=2&page=1', '?page=3']) {
-    assert.equal((await request(board, '/boards/office-people' + query, { slug: 'office-people' })).status, 404);
+    assert.equal((await request(board, '/boards/brain-off' + query, { slug: 'brain-off' })).status, 404);
   }
 });
 
@@ -218,12 +218,11 @@ test('an empty board retains its own introduction and honestly reports no user p
   assert.doesNotMatch(html, /sample-|DiscussionForumPosting/);
 });
 
-test('the explicit pages sitemap serves exactly the ten public pages without accessing D1, including HEAD', async () => {
+test('the explicit pages sitemap serves exactly the seven public pages without accessing D1, including HEAD', async () => {
   env = { get DB() { throw new Error('The static pages sitemap must not access D1'); } };
   const expectedPaths = [
     '/', '/privacy/', '/terms/', '/studio/',
-    '/boards/brain-off', '/boards/salary-lupin', '/boards/office-people',
-    '/boards/funny-mistakes', '/boards/absurd-moments', '/boards/daily-life',
+    '/boards/brain-off', '/boards/salary-lupin', '/boards/quit-advice',
   ];
   const response = await request(pagesSitemap, '/sitemap-pages.xml');
   const xml = await response.text();
@@ -233,7 +232,7 @@ test('the explicit pages sitemap serves exactly the ten public pages without acc
   assert.equal(response.headers.get('Set-Cookie'), null);
   assert.match(xml, /^<\?xml version="1.0" encoding="UTF-8"\?><urlset xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9">/);
   assert.deepEqual(locations(xml).sort(), expectedPaths.map(path => 'https://workfolio.life' + path).sort());
-  assert.equal(new Set(locations(xml)).size, 10);
+  assert.equal(new Set(locations(xml)).size, 7);
   assert.deepEqual([...metadata.STATIC_SITEMAP_PATHS].sort(), expectedPaths.sort());
   const head = await request(pagesSitemap, '/sitemap-pages.xml', {}, 'HEAD');
   assert.equal(head.status, 200);
@@ -299,4 +298,63 @@ test('shared photo posts expose only attached images in order and use the first 
   assert.match(html, /<script src="\/community-share.js" defer>/);
   assert.match(response.headers.get('Content-Security-Policy'), /script-src 'self'/);
   assert.doesNotMatch(html, /draft-image|deleted-image|other-image|private-image-owner|private-key|never-share/);
+});
+
+
+test('three canonical boards retain legacy links as safe redirects', async () => {
+  assert.deepEqual(metadata.BOARD_PAGES.map(item => item.category), ['빡대가리 게시판', '월급루팡', '퇴사각 상담소']);
+  for (const [old, target] of Object.entries(metadata.LEGACY_BOARD_SLUGS)) {
+    const response = await request(board, `/boards/${old}?page=2&private=do-not-copy`, {slug: old});
+    assert.equal(response.status, 301);
+    assert.equal(response.headers.get('Location'), `/boards/${target}?page=2`);
+    assert.equal(metadata.boardForSlug(old).slug, target);
+  }
+  const html = await (await request(board, '/boards/brain-off', { slug: 'brain-off' })).text();
+  const nav = html.match(/<nav class="reader-nav"[^>]*>(.*?)<\/nav>/s)?.[1] ?? '';
+  assert.deepEqual([...nav.matchAll(/href="(\/boards\/[^"]+)"/g)].map(match => match[1]),
+    ['/boards/brain-off', '/boards/salary-lupin', '/boards/quit-advice']);
+  assert.ok(nav.includes('href="/?channels=browse"'));
+  assert.ok(nav.includes('href="/?channels=apply"'));
+  assert.equal(metadata.boardForSlug('__proto__'), undefined);
+  assert.equal(metadata.boardForSlug('constructor'), undefined);
+});
+
+test('hidden and inactive-channel posts stay out of public readers, metadata and sitemaps', async () => {
+  seed('visible'); seed('hidden-secret', {title: 'never expose hidden title'}); seed('inactive-secret');
+  sqlite.prepare("UPDATE community_posts SET status = 'hidden' WHERE id = ?").run('hidden-secret');
+  sqlite.prepare("UPDATE community_posts SET channel_id = 'non-active-channel' WHERE id = ?").run('inactive-secret');
+  for (const id of ['hidden-secret', 'inactive-secret']) {
+    const response = await request(post, `/posts/${id}`, {id});
+    assert.equal(response.status, 404);
+    assert.doesNotMatch(await response.text(), /never expose hidden title|DiscussionForumPosting/);
+  }
+  const html = await (await request(board, '/boards/brain-off', {slug:'brain-off'})).text();
+  const xml = await (await request(sitemap, '/sitemap-posts.xml')).text();
+  for (const text of [html,xml]) { assert.match(text,/posts\/visible/); assert.doesNotMatch(text,/posts\/(?:hidden-secret|inactive-secret)/); }
+});
+
+test('reader renders stored views but GET and HEAD never count them', async () => {
+  seed('view-post'); sqlite.prepare('UPDATE community_posts SET view_count = 42 WHERE id = ?').run('view-post');
+  const response = await request(post, '/posts/view-post', {id:'view-post'});
+  assert.match(response.headers.get('Content-Security-Policy'), /connect-src 'self'/);
+  const html = await response.text();
+  assert.match(html, /data-view-post="view-post"/);
+  assert.match(html, /조회 42/);
+  assert.match(html, /src="\/community-views.js"/);
+  await request(post, '/posts/view-post', {id:'view-post'}, 'HEAD');
+  assert.equal(sqlite.prepare('SELECT view_count FROM community_posts WHERE id = ?').get('view-post').view_count,42);
+  assert.ok(statements.every(sql => /^SELECT\b/i.test(sql)));
+});
+
+test('shared channel posts link back to their active channel and keep that context when joining the discussion', async () => {
+  seed('channel-story');
+  sqlite.prepare(`INSERT INTO community_channels (id, owner_id, name, normalized_name, description, rules, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`).run('night-shift', 'private-owner', '야근조', '야근조', '소개', '규칙', createdAt);
+  sqlite.prepare('UPDATE community_posts SET channel_id = ? WHERE id = ?').run('night-shift', 'channel-story');
+  const response = await request(post, '/posts/channel-story', { id: 'channel-story' });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.ok(html.includes('<a href="/?channel=night-shift#feed">야근조</a>'));
+  assert.ok(html.includes('href="/?channel=night-shift&amp;story=channel-story"'));
+  assert.ok(html.includes('data-share-url="https://workfolio.life/posts/channel-story"'));
 });

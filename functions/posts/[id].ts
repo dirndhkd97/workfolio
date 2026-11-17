@@ -1,5 +1,5 @@
 import { SITE_NAME, SITE_ORIGIN, boardForCategory, boardPath, postPath } from '../../src/lib/community/seo';
-import { POST_COLUMNS, companyAuthorMarkup, postShareMarkup, escapeMarkup as esc, excerpt, htmlPage, readOnly, timeMarkup, unavailablePage,
+import { POST_COLUMNS, REAL_POSTS, companyAuthorMarkup, postShareMarkup, escapeMarkup as esc, excerpt, htmlPage, readOnly, timeMarkup, unavailablePage,
   type CommunitySeoEnv, type PublicComment, type PublicPost } from '../_lib/community-seo';
 
 export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params }) => readOnly(request, async () => {
@@ -7,7 +7,9 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
   if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(id)) return unavailablePage(404);
   try {
     if (id.startsWith('sample-')) return unavailablePage(404);
-    const post = await env.DB.prepare(`SELECT ${POST_COLUMNS} FROM community_posts WHERE id = ?`).bind(id).first<PublicPost>();
+    const post = await env.DB.prepare(`SELECT ${POST_COLUMNS}, channel_id,
+        (SELECT name FROM community_channels WHERE id = community_posts.channel_id) AS channel_name
+      FROM community_posts WHERE id = ? AND ${REAL_POSTS}`).bind(id).first<PublicPost & { channel_id: string | null; channel_name: string | null }>();
     if (!post) return unavailablePage(404);
     const [comments, commentTotal, reactions, attachmentRows] = await Promise.all([
       env.DB.prepare('SELECT id, body, nickname, created_at FROM community_comments WHERE post_id = ? ORDER BY created_at ASC, id ASC LIMIT 500').bind(id).all<PublicComment>(),
@@ -19,7 +21,8 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
     const gallery = images.length ? `<div class="reader-gallery" aria-label="첨부 이미지">${images.map((image, index) => `<a href="${esc(image.url)}" target="_blank" rel="noopener" aria-label="첨부 이미지 ${index + 1} 크게 보기 (새 창)"><img src="${esc(image.url)}" alt="${esc(post.title)} 첨부 이미지 ${index + 1}" width="${image.width}" height="${image.height}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async"></a>`).join('')}</div>` : '';
     const board = boardForCategory(post.category);
     const url = SITE_ORIGIN + postPath(id);
-    const join = `/?story=${encodeURIComponent(id)}`;
+    const channelPath = post.channel_id ? `/?channel=${encodeURIComponent(post.channel_id)}` : null;
+    const join = channelPath ? `${channelPath}&amp;story=${encodeURIComponent(id)}` : `/?story=${encodeURIComponent(id)}`;
     const count = commentTotal?.count ?? 0;
     const schema = {
       '@context': 'https://schema.org', '@type': 'DiscussionForumPosting',
@@ -33,14 +36,14 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
         datePublished: new Date(comment.created_at).toISOString(),
       })),
     };
-    const body = `<nav class="reader-breadcrumb" aria-label="현재 위치"><a href="/">커뮤니티</a><span aria-hidden="true"> / </span>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)}</a>` : esc(post.category)}</nav>
-<article class="reader-card">
+    const body = `<nav class="reader-breadcrumb" aria-label="현재 위치"><a href="/">커뮤니티</a><span aria-hidden="true"> / </span>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)}</a>` : esc(post.category)}${channelPath ? `<span aria-hidden="true"> / </span><a href="${channelPath}#feed">${esc(post.channel_name)}</a>` : ''}</nav>
+<article class="reader-card" data-view-post="${esc(post.id)}">
 <p class="reader-kicker">${esc(post.category)}</p>
 <h1 class="reader-title">${esc(post.title)}</h1>
 <div class="reader-meta">${companyAuthorMarkup(post)}<span aria-hidden="true">·</span><span>${esc(post.nickname)}</span>${timeMarkup(post.created_at)}</div>
 <p class="reader-body">${esc(post.body)}</p>
 ${gallery}
-<div class="reader-stats"><span>공감 ${reactions?.count ?? 0}</span><span>댓글 ${count}</span></div>
+<div class="reader-stats"><span data-view-count title="같은 계정·브라우저의 반복 열람을 제한한 참고용 수치">조회 ${Number.isSafeInteger(post.view_count) && post.view_count >= 0 ? post.view_count : 0}</span><span>공감 ${reactions?.count ?? 0}</span><span>댓글 ${count}</span></div>
 ${postShareMarkup(post.id, post.title)}
 <div class="reader-actions"><a class="reader-primary" href="${join}">공감하고 댓글 남기기</a>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)} 더 보기 →</a>` : ''}</div>
 </article>

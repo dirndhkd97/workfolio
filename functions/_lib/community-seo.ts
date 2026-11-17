@@ -11,12 +11,13 @@ export interface PublicPost {
   company_name: string | null;
   is_admin_author: number;
   created_at: number;
+  view_count: number;
 }
 export interface PublicComment { id: string; body: string; nickname: string; created_at: number }
 
-export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, is_admin_author, created_at';
-// Retired editorial sample IDs must never appear in the public feeds.
-export const REAL_POSTS = "id NOT LIKE 'sample-%'";
+export const POST_COLUMNS = 'id, title, body, category, nickname, company_name, is_admin_author, created_at, view_count';
+// Only index published stories from the main boards and active channels.
+export const REAL_POSTS = "id NOT LIKE 'sample-%' AND status = 'published' AND (channel_id IS NULL OR EXISTS (SELECT 1 FROM community_channels c WHERE c.id = community_posts.channel_id AND c.status = 'active'))";
 export const SITEMAP_SIZE = 1000;
 
 /** Safe for HTML text, quoted attributes, and XML text/attributes. */
@@ -111,18 +112,18 @@ ${canonical ? `<link rel="canonical" href="${escapeMarkup(canonical)}"><meta pro
 <meta name="twitter:image:alt" content="${escapeMarkup(socialImageAlt)}">
 <meta name="theme-color" content="#234f39"><link rel="icon" href="${SITE_ORIGIN}/community-favicon.png" type="image/png" sizes="192x192">
 <link rel="alternate" type="application/rss+xml" title="${escapeMarkup(SITE_NAME)} 최신 글" href="${SITE_ORIGIN}/rss.xml"><link rel="stylesheet" href="/community-reader.css">
-${article ? '<script src="/community-share.js" defer></script>' : ''}
+${article ? '<script src="/community-share.js" defer></script><script src="/community-views.js" defer></script>' : ''}
 ${schema ? `<script type="application/ld+json">${jsonLd(schema)}</script>` : ''}
 </head><body><div class="reader-shell">
 <header class="reader-header"><a class="reader-brand" href="/">workfolio<span aria-hidden="true">.</span></a><a href="/">커뮤니티 홈 →</a></header>
-<nav class="reader-nav" aria-label="게시판">${nav}</nav>
+<nav class="reader-nav" aria-label="게시판과 이용자 채널">${nav}<a href="/?channels=browse">채널 탐색</a><a href="/?channels=apply">채널 개설 신청</a></nav>
 <main id="main" class="reader-main">${body}</main>
 <footer class="reader-footer"><p>회사에선 못한 말, 별명으로 나누는 퇴근 후 아지트.</p><nav aria-label="이용 안내"><a href="/privacy/">개인정보처리방침</a><a href="/terms/">이용약관</a><!--email_off--><a href="mailto:contact@workfolio.life">문의</a><!--/email_off--></nav></footer>
 </div></body></html>`;
   return new Response(document, {
     status,
     headers: { ...baseHeaders, 'Content-Type': 'text/html; charset=utf-8',
-      'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+      'Content-Security-Policy': "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       ...(noindex ? { 'X-Robots-Tag': 'noindex, follow' } : {}),
       ...(status === 503 ? { 'Retry-After': '60' } : {}),
     },

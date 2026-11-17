@@ -6,7 +6,7 @@ The existing Astro project serves the community at `https://workfolio.life/` thr
 
 Anonymous visitors can read posts and comments and search the current feed. Creating posts, comments, reactions, reports, and deleting one's own post require a verified community session. Community identities use separate tables and a hashed, HttpOnly session cookie. Legacy customer sessions and client-supplied identity headers do not grant community access. Provider email addresses are not stored or used to link accounts. Signing in with a different provider creates a separate account.
 
-The feed fetches the latest 60 real posts and six labelled fictional examples. Trending excludes examples and uses real reactions/comments on posts from the past seven days. No fake engagement is added.
+The feed fetches the latest 60 public real posts. The three base boards are 빡대가리 게시판, 월급루팡, and 퇴사각 상담소; user channels are separate approved topical spaces. Trending uses real reactions/comments on posts from the past seven days. No fictional examples, fake engagement, or fabricated historical views are added.
 
 ## Build and verification
 
@@ -15,9 +15,9 @@ npm ci
 npm run check:community
 npm run test:community
 npm run build
-npx wrangler d1 execute DB --local --file migrations/0005_community_auth.sql
-npx wrangler d1 execute DB --local --file migrations/0006_community_board.sql
-npx wrangler d1 execute DB --local --file migrations/0007_community_kakao_events.sql
+for migration in migrations/*_community_*.sql; do
+  npx wrangler d1 execute DB --local --file "$migration" || exit 1
+done
 npm run preview:community
 ```
 
@@ -25,7 +25,7 @@ Local Pages preview is `http://localhost:8788`. Do not test real Apple authoriza
 
 ## Production deployment
 
-Push `main` to the existing `dirndhkd97/workfolio` GitHub repository. `.github/workflows/deploy.yml` runs checks, builds Astro, applies the additive community SQL files `0005` through `0007`, then deploys Cloudflare Pages. The existing `CLOUDFLARE_API_TOKEN` GitHub secret needs Pages deployment and D1 write permission for the existing account. Legacy SQL files are not replayed. Do not modify migrations after they have been applied; future schema changes need new files and matching workflow updates.
+Push `main` to the existing `dirndhkd97/workfolio` GitHub repository. `.github/workflows/deploy.yml` runs checks, builds Astro, runs the repeatable `scripts/release-community.mjs --apply` workflow through migration `0014`, prepares the existing private image storage, then deploys Cloudflare Pages. The existing `CLOUDFLARE_API_TOKEN` GitHub secret needs Pages deployment and D1 write permission for the existing account. Legacy SQL files are not replayed. Do not modify migrations after they have been applied; future schema changes need new files and matching workflow updates.
 
 ## Activate social login
 
@@ -75,3 +75,16 @@ The receiver checks Kakao's RS256 signature against cached official public keys,
 An accepted unlink atomically deletes the matching Kakao provider link (including the provider member number) and all that identity's sessions. Existing internal user IDs, random nicknames, posts, comments, reactions and reports remain; content deletion policy is a separate decision. A later new sign-in creates a new identity. A delayed first delivery revokes the currently linked identity conservatively: local account creation time cannot prove whether provider consent was renewed. Previously processed event retries have no effect on a later login. Same-second ordering is also conservative because Kakao event time has whole-second precision; an immediate sign-in may need a retry.
 
 No raw SET or raw member number is stored in event receipts or logged. A SHA-256 member-number hash and event timestamp block OAuth flows already in progress for 11 minutes. The event-ID hash prevents repeated processing for 24 hours, exceeding the accepted token lifetime. Expired subject hashes are cleared and expired receipts deleted on the next OAuth start or verified event delivery; these are opportunistic cleanup points, **not a scheduled hard deletion deadline**. Without further traffic, expired rows remain until the next cleanup. Account creation and session issuance check the watermark in the same D1 transaction, preventing an in-flight callback from restoring a disconnected account.
+
+
+## Three boards, views, and user channels
+
+Migration `0014_community_boards_channels_views.sql` preserves every original category in `original_category` and maps the old overlapping boards into the three agreed boards. No post, author, comment, reaction, company snapshot, or image is removed. New posts only accept the three canonical categories. Old public board URLs redirect to their merged canonical board, and old home query bookmarks resolve to it. New historical view counts start at zero.
+
+Public post readers, feed/detail APIs, RSS, sitemaps, and image access exclude hidden posts and posts outside an active channel. Views are incremented only by a same-origin POST after a detail has stayed visible for one second; GET and HEAD remain read-only. A server-issued HttpOnly visitor cookie or a hashed account key deduplicates a post for 24 hours. Issuance, requests, and record counts are bounded; expiry cleanup is opportunistic. This is an approximate counter, not unique-human analytics or exhaustive bot protection.
+
+Channels require a signed-in applicant, a distinct name, original description/rules, and platform approval. The applicant becomes the channel manager after approval. Base boards stay intact and channel posts also retain a base category. Managers can reversibly hide/restore only their own channel's eligible posts, not appoint administrators, delete another person's content, or reverse platform suppression. Reports default to platform-private; explicit per-report consent is required before a channel manager can see the report's content. The reporter's account ID is never sent to the manager. Local dismissal must not close the platform review.
+
+Platform approval is gated by the server-only `COMMUNITY_MODERATOR_USER_IDS` environment allowlist containing the exact internal user IDs the owner designated. **A company verification badge or a `workfolio.life` company email does not grant this role.** With no configured IDs, review actions fail closed. Confirm the owner's intended signed-in account before configuration. A platform moderator may explicitly review their own request; the applicant, reviewer, timestamp, and state change are audited. A normal channel owner cannot self-approve.
+
+The channel directory/application/management flow is URL-backed so a sign-in round trip returns to the requested screen. Setting the runtime allowlist and confirming an actual owner approval in production remain separate verification steps from unit tests and deployment. No fake channels or production QA posts are seeded.

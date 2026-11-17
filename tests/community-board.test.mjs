@@ -15,13 +15,17 @@ const compile = (path, filename, rewrite = (value) => value) => {
   writeFileSync(join(directory,filename),rewrite(compiled));
 };
 compile('src/lib/community/domain.ts','domain.mjs');
+compile('functions/_lib/community-channels.ts','channels-lib.mjs',value => value.replace("'../../src/lib/community/domain'","'./domain.mjs'")
+  .replace("'./community-channels'","'./channels-lib.mjs'"));
 compile('functions/_lib/community-images.ts','images.mjs',value => value
   .replace(/import \{ getCommunityIdentity[^\n]+community-auth';/, 'const getCommunityIdentity = globalThis.__communityIdentityForTest;')
-  .replace("'../../src/lib/community/domain'","'./domain.mjs'"));
+  .replace("'../../src/lib/community/domain'","'./domain.mjs'")
+  .replace("'./community-channels'","'./channels-lib.mjs'"));
 compile('functions/api/board.ts','route.mjs',value => value
   .replace(/import \{ getCommunityIdentity[^\n]+community-auth";/, 'const getCommunityIdentity = globalThis.__communityIdentityForTest;')
   .replace('"../../src/lib/community/domain"','"./domain.mjs"')
-  .replace('"../_lib/community-images"','"./images.mjs"'));
+  .replace('"../_lib/community-images"','"./images.mjs"')
+  .replace('"../_lib/community-channels"','"./channels-lib.mjs"'));
 const env = {};
 const testSessions = new Map([['owner-session','owner'],['visitor-session','visitor']]);
 // The real auth helper has its own tests; this stub only grants configured session cookies.
@@ -48,14 +52,14 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0014_community_boards_channels_views.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
   }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
   env.DB = adapter(sqlite);
 });
 after(() => { sqlite?.close(); rmSync(directory,{recursive:true,force:true}); delete globalThis.__communityIdentityForTest; });
-const draft = {action:'create',title:'오늘의 작은 이야기',body:'동료가 남겨 준 작은 메모 덕분에 웃으며 퇴근했어요.',category:'회사 사람들',nickname:'책상 옆 동료'};
+const draft = {action:'create',title:'오늘의 작은 이야기',body:'동료가 남겨 준 작은 메모 덕분에 웃으며 퇴근했어요.',category:'빡대가리 게시판',nickname:'책상 옆 동료'};
 async function mutate(data,user='owner',extraHeaders={}) {
   const headers = {'content-type':'application/json',origin:'https://board.example', ...extraHeaders};
   if (user) headers.Cookie = `mock_community_session=${user}-session`;
@@ -200,8 +204,8 @@ test('write rate limits are account-scoped, atomic and reset after one minute',a
   assert.equal(sqlite.prepare('SELECT attempts FROM community_write_limits WHERE owner_id = ?').get('owner').attempts,1);
 });
 
-test('all six boards are accepted and community writes leave commerce data untouched',async () => {
-  for (const category of ['웃픈 실수','황당한 순간','회사 사람들','소소한 일상','빡대가리 게시판','월급루팡']) {
+test('only the three consolidated boards are accepted and community writes leave commerce data untouched',async () => {
+  for (const category of ['빡대가리 게시판','월급루팡','퇴사각 상담소']) {
     const response = await mutate({...draft,category});
     assert.equal(response.status,201);
     assert.equal((await response.json()).post.category,category);

@@ -1,3 +1,4 @@
+import { isCommunityModerator, PUBLIC_POST_SQL, type CommunityChannelEnv } from "../_lib/community-channels";
 import { getCommunityIdentity, type CommunityAuthEnv } from "../_lib/community-auth";
 import {
   BoardError, LIMITS, REACTIONS, checkMutationRequest, readJsonBody,
@@ -34,11 +35,11 @@ async function limitWrites(db: D1Database, userId: string): Promise<void> {
   `).bind(userId, Date.now()).first<{ attempts: number }>();
   if (!accepted) throw new BoardError("잠깐만요! 요청이 많아요. 1분 뒤 다시 시도해 주세요.", 429);
 }
-interface StoredPost { id: string; owner_id: string; title: string; body: string; category: Category; nickname: string; created_at: number; company_name: string | null; is_admin_author: number }
+interface StoredPost { id: string; owner_id: string; title: string; body: string; category: Category; nickname: string; created_at: number; company_name: string | null; is_admin_author: number; status: "published" | "hidden"; channel_id: string | null; channel_name: string | null; hidden_by_scope: "platform" | "channel" | null; view_count: number }
 function publicPost(row: StoredPost, userId: string | null): Post {
   return { id: row.id, title: row.title, body: row.body, category: row.category, nickname: row.nickname, companyName: row.company_name,
     isAdminAuthor: Boolean(row.company_name) && row.is_admin_author === 1, createdAt: row.created_at,
-    sample: false, images: [], reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], commentCount: 0, mine: row.owner_id === userId };
+    sample: false, images: [], viewCount: row.view_count, status: row.status, channelId: row.channel_id, channelName: row.channel_name, hiddenByScope: row.hidden_by_scope, reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], commentCount: 0, mine: row.owner_id === userId };
 }
 async function enrich(db: D1Database, posts: Post[], userId: string | null): Promise<Post[]> {
   if (!posts.length) return [];
@@ -58,23 +59,25 @@ async function enrich(db: D1Database, posts: Post[], userId: string | null): Pro
   });
 }
 async function getPost(db: D1Database, id: string, userId: string | null): Promise<Post> {
-  const row = await db.prepare("SELECT * FROM community_posts WHERE id = ?").bind(id).first<StoredPost>();
+  const row = await db.prepare(`SELECT p.*, c.name AS channel_name FROM community_posts p LEFT JOIN community_channels c ON c.id = p.channel_id WHERE p.id = ? AND ${PUBLIC_POST_SQL}`).bind(id).first<StoredPost>();
   if (!row) throw new BoardError("삭제되었거나 찾을 수 없는 이야기예요.", 404);
   return (await enrich(db, [publicPost(row, userId)], userId))[0];
 }
-export const onRequestGet: PagesFunction<CommunityAuthEnv> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<CommunityChannelEnv> = async ({ request, env }) => {
   try {
     const db = database(env);
     const userId = await getCommunityIdentity(request, env);
-    const id = new URL(request.url).searchParams.get("id");
+    const params = new URL(request.url).searchParams;
+    const id = params.get("id"), channelId = params.has("channel") ? validPostId(params.get("channel")) : null;
+    const isModerator = isCommunityModerator(env, userId);
     if (id !== null) {
       const post = await getPost(db, validPostId(id), userId);
       const rows = await db.prepare("SELECT id, body, nickname, created_at AS createdAt FROM community_comments WHERE post_id = ? ORDER BY created_at ASC, id ASC LIMIT 500").bind(id).all<Comment>();
-      return json({ post, comments: rows.results, signedIn: Boolean(userId) });
+      return json({ post, comments: rows.results, signedIn: Boolean(userId), isModerator });
     }
-    const rows = await db.prepare("SELECT * FROM community_posts ORDER BY created_at DESC, id DESC LIMIT 60").all<StoredPost>();
+    const rows = await db.prepare(`SELECT p.*, c.name AS channel_name FROM community_posts p LEFT JOIN community_channels c ON c.id = p.channel_id WHERE ${PUBLIC_POST_SQL} ${channelId ? "AND p.channel_id = ?" : ""} ORDER BY p.created_at DESC, p.id DESC LIMIT 60`).bind(...(channelId ? [channelId] : [])).all<StoredPost>();
     const posts = await enrich(db, rows.results.map((row) => publicPost(row, userId)), userId);
-    return json({ posts, signedIn: Boolean(userId) });
+    return json({ posts, signedIn: Boolean(userId), isModerator });
   } catch (error) { return failure(error); }
 }
 export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request, env, waitUntil }) => {
@@ -87,20 +90,22 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
     await limitWrites(db, userId);
     if (data.action === "create") {
       const value = validateCreate(data);
+      if (value.channelId && !await db.prepare("SELECT id FROM community_channels WHERE id = ? AND status = 'active'").bind(value.channelId).first()) throw new BoardError("승인된 채널을 선택해 주세요.", 403);
       const id = crypto.randomUUID();
       const now = Date.now();
       const imageSlots = value.imageIds.map(() => "?").join(",");
-      const imageCondition = value.imageIds.length ? `(SELECT COUNT(*) FROM community_post_images WHERE id IN (${imageSlots}) AND owner_id = ? AND status = 'pending' AND expires_at > ?) = ?` : "1 = 1";
-      const imageBindings = value.imageIds.length ? [...value.imageIds, userId, now, value.imageIds.length] : [];
+      const baseImageCondition = value.imageIds.length ? `(SELECT COUNT(*) FROM community_post_images WHERE id IN (${imageSlots}) AND owner_id = ? AND status = 'pending' AND expires_at > ?) = ?` : "1 = 1";
+      const imageCondition = `${baseImageCondition} AND (? IS NULL OR EXISTS (SELECT 1 FROM community_channels WHERE id = ? AND status = 'active'))`;
+      const imageBindings = [...(value.imageIds.length ? [...value.imageIds, userId, now, value.imageIds.length] : []), value.channelId, value.channelId];
       const insert = value.shareCompany
-        ? db.prepare(`INSERT INTO community_posts (id,owner_id,title,body,category,nickname,created_at,company_name,is_admin_author)
-            SELECT ?,?,?,?,?,?,?,c.name,CASE WHEN v.company_id = 'workfolio' AND v.domain = 'workfolio.life' THEN 1 ELSE 0 END
+        ? db.prepare(`INSERT INTO community_posts (id,owner_id,title,body,category,nickname,created_at,original_category,channel_id,company_name,is_admin_author)
+            SELECT ?,?,?,?,?,?,?,?,?,c.name,CASE WHEN v.company_id = 'workfolio' AND v.domain = 'workfolio.life' THEN 1 ELSE 0 END
             FROM community_company_verifications v JOIN community_companies c ON c.id = v.company_id
             WHERE v.user_id = ? AND v.expires_at > ? AND ${imageCondition}`)
-          .bind(id,userId,value.title,value.body,value.category,value.nickname,now,userId,now,...imageBindings)
-        : db.prepare(`INSERT INTO community_posts (id,owner_id,title,body,category,nickname,created_at)
-            SELECT ?,?,?,?,?,?,? WHERE ${imageCondition}`)
-          .bind(id,userId,value.title,value.body,value.category,value.nickname,now,...imageBindings);
+          .bind(id,userId,value.title,value.body,value.category,value.nickname,now,value.category,value.channelId,userId,now,...imageBindings)
+        : db.prepare(`INSERT INTO community_posts (id,owner_id,title,body,category,nickname,created_at,original_category,channel_id)
+            SELECT ?,?,?,?,?,?,?,?,? WHERE ${imageCondition}`)
+          .bind(id,userId,value.title,value.body,value.category,value.nickname,now,value.category,value.channelId,...imageBindings);
       // D1 batches are serialized transactions: the insert and every owner-bound image claim commit together.
       const created = await db.batch([insert, ...value.imageIds.map((imageId, position) => db.prepare(`UPDATE community_post_images
         SET post_id = ?, status = 'attached', position = ? WHERE id = ? AND owner_id = ? AND status = 'pending' AND expires_at > ?
@@ -113,7 +118,9 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
     }
     if (!["comment", "react", "report", "delete"].includes(String(data.action))) throw new BoardError("지원하지 않는 요청이에요.");
     const id = validPostId(data.postId);
-    const post = await getPost(db, id, userId);
+    const post = data.action === "delete"
+      ? await db.prepare("SELECT owner_id FROM community_posts WHERE id = ?").bind(id).first<{owner_id:string}>().then(row => { if (!row) throw new BoardError("삭제되었거나 찾을 수 없는 이야기예요.",404); return { mine: row.owner_id === userId }; })
+      : await getPost(db, id, userId);
     if (data.action === "delete") {
       if (!post.mine) throw new BoardError("직접 쓴 이야기만 삭제할 수 있어요.", 403);
       // D1 batches are transactional. Every delete is owner-scoped, including associated data.
@@ -124,6 +131,7 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
         db.prepare(`DELETE FROM community_reports WHERE post_id = ? AND ${ownerExists}`).bind(id, id, userId),
         db.prepare(`UPDATE community_post_images SET status = 'deleted' WHERE post_id = ? AND ${ownerExists}`).bind(id, id, userId),
         db.prepare("DELETE FROM community_posts WHERE id = ? AND owner_id = ?").bind(id, userId),
+        db.prepare("DELETE FROM community_view_receipts WHERE post_id = ? AND NOT EXISTS (SELECT 1 FROM community_posts WHERE id = ?)").bind(id, id),
       ]);
       if (!result[4].meta.changes) throw new BoardError("이미 삭제된 이야기예요.", 404);
       if (env.COMMUNITY_IMAGES) {
@@ -133,7 +141,7 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
       return json({ ok: true });
     }
     // A conditional INSERT also prevents orphan writes if the author deletes during this request.
-    const exists = "EXISTS (SELECT 1 FROM community_posts WHERE id = ?)";
+    const exists = `EXISTS (SELECT 1 FROM community_posts p WHERE p.id = ? AND ${PUBLIC_POST_SQL})`;
     if (data.action === "comment") {
       const body = textField(data.body, "댓글", LIMITS.comment);
       const comment: Comment = { id: crypto.randomUUID(), body, nickname: "익명의 동료", createdAt: Date.now() };
@@ -150,8 +158,9 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
       return json({ post: await getPost(db, id, userId) });
     }
     const reason = textField(data.reason, "신고 사유", LIMITS.report, 2);
-    const result = await db.prepare(`INSERT INTO community_reports (post_id, owner_id, reason, created_at) SELECT ?, ?, ?, ? WHERE ${exists} ON CONFLICT(post_id, owner_id) DO UPDATE SET reason = excluded.reason, created_at = excluded.created_at`)
-      .bind(id, userId, reason, Date.now(), id).run();
+    if (data.shareWithChannel !== undefined && typeof data.shareWithChannel !== "boolean") throw new BoardError("신고 공유 여부를 선택해 주세요.");
+    const result = await db.prepare(`INSERT INTO community_reports (post_id, owner_id, reason, created_at, share_with_channel) SELECT ?, ?, ?, ?, ? WHERE ${exists} ON CONFLICT(post_id, owner_id) DO UPDATE SET reason = excluded.reason, created_at = excluded.created_at, share_with_channel = excluded.share_with_channel, dismissed_at = NULL, channel_dismissed_at = NULL`)
+      .bind(id, userId, reason, Date.now(), data.shareWithChannel === true ? 1 : 0, id).run();
     if (!result.meta.changes) throw new BoardError("이미 삭제된 이야기예요.", 404);
     return json({ ok: true });
   } catch (error) { return failure(error); }

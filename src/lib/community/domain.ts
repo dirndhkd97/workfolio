@@ -1,8 +1,12 @@
-export const CATEGORIES = ["웃픈 실수", "황당한 순간", "회사 사람들", "소소한 일상", "빡대가리 게시판", "월급루팡"] as const;
+export const CATEGORIES = ["빡대가리 게시판", "월급루팡", "퇴사각 상담소"] as const;
 export const REACTIONS = ["same", "laugh", "cheer"] as const;
 export type Category = (typeof CATEGORIES)[number];
 export type Reaction = (typeof REACTIONS)[number];
 export interface PostImage { id: string; url: string; width: number; height: number }
+export interface Channel {
+  id: string; name: string; description: string; rules: string;
+  status: "pending" | "active" | "rejected"; createdAt: number; mine: boolean; reviewNote?: string;
+}
 export interface Post {
   id: string;
   title: string;
@@ -18,6 +22,11 @@ export interface Post {
   myReactions: Reaction[];
   commentCount: number;
   mine: boolean;
+  viewCount: number;
+  status?: "published" | "hidden";
+  channelId?: string | null;
+  channelName?: string | null;
+  hiddenByScope?: "platform" | "channel" | null;
 }
 export interface Comment { id: string; body: string; nickname: string; createdAt: number }
 export const LIMITS = { title: 80, body: 3000, nickname: 20, comment: 500, report: 500, requestBytes: 16384 } as const;
@@ -49,7 +58,10 @@ export function validateCreate(data: Record<string, unknown>) {
   if (!Array.isArray(imageIds) || imageIds.length > 10 || imageIds.some(id => typeof id !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(id)) || new Set(imageIds).size !== imageIds.length) throw new BoardError("이미지는 최대 10장까지 첨부할 수 있어요. 첨부 상태를 확인해 주세요.");
   if (!CATEGORIES.includes(data.category as Category)) throw new BoardError("이야기 주제를 골라 주세요.");
   if (data.shareCompany !== undefined && typeof data.shareCompany !== "boolean") throw new BoardError("회사 공개 여부를 선택해 주세요.");
+  const channelId = data.channelId === undefined || data.channelId === null || data.channelId === "" ? null : validPostId(data.channelId);
+  if (channelId && data.channelModerationConfirmed !== true) throw new BoardError("채널 관리자가 글을 숨길 수 있다는 점을 확인해 주세요.");
   return {
+    channelId,
     title: textField(data.title, "제목", LIMITS.title, 2),
     body: textField(data.body, "이야기", LIMITS.body, imageIds.length ? 1 : 10),
     imageIds: imageIds as string[],

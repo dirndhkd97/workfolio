@@ -14,3 +14,5 @@ APPLE_KEY_ID=
 APPLE_PRIVATE_KEY=
 # Company email verification uses the existing verified workfolio.life Mailgun sender.
 MAILGUN_API_KEY=
+# Comma-separated internal community account IDs allowed to review channel applications.
+COMMUNITY_MODERATOR_USER_IDS=

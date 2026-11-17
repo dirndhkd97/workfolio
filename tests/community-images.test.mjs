@@ -10,9 +10,12 @@ const directory = mkdtempSync(join(tmpdir(),'workfolio-images-'));
 const root = new URL('../',import.meta.url);
 const compile = (path,name,rewrite = value => value) => writeFileSync(join(directory,name),rewrite(stripTypeScriptTypes(readFileSync(new URL(path,root),'utf8'))));
 compile('src/lib/community/domain.ts','domain.mjs');
+compile('functions/_lib/community-channels.ts','channels-lib.mjs',value => value.replace("'../../src/lib/community/domain'","'./domain.mjs'")
+  .replace("'./community-channels'","'./channels-lib.mjs'"));
 compile('functions/_lib/community-images.ts','images.mjs',value=>value
   .replace(/import \{ getCommunityIdentity[^\n]+community-auth';/, "const getCommunityIdentity = async request => ({'owner-session':'owner','visitor-session':'visitor'})[request.headers.get('x-test-session')] || null;")
-  .replace("'../../src/lib/community/domain'","'./domain.mjs'"));
+  .replace("'../../src/lib/community/domain'","'./domain.mjs'")
+  .replace("'./community-channels'","'./channels-lib.mjs'"));
 for (const [path,name] of [['functions/api/community-images/index.ts','upload.mjs'],['functions/api/community-images/[id].ts','image.mjs']]) compile(path,name,value=>value.replace("'../../_lib/community-images'","'./images.mjs'"));
 const {onRequest:upload} = await import(pathToFileURL(join(directory,'upload.mjs')).href);
 const {onRequest:imageRoute} = await import(pathToFileURL(join(directory,'image.mjs')).href);
@@ -32,6 +35,7 @@ beforeEach(()=>{
   db?.close();db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL('migrations/0006_community_board.sql',root),'utf8'));
   db.exec(readFileSync(new URL('migrations/0012_community_post_images.sql',root),'utf8'));
+  db.exec(readFileSync(new URL('migrations/0014_community_boards_channels_views.sql',root),'utf8'));
   objects=new Map();background=[];
   env={DB:adapter(db),COMMUNITY_IMAGES:{
     async put(key,bytes,options){objects.set(key,{bytes:Uint8Array.from(bytes),options});return {key}},
@@ -49,7 +53,7 @@ async function route(id,method='GET',user=null,extra={}) {
   await Promise.all(background.splice(0));return response;
 }
 async function createUpload(){const response=await uploadRequest();assert.equal(response.status,201);return (await response.json()).image}
-function attach(imageId){db.prepare('INSERT INTO community_posts VALUES (?,?,?,?,?,?,?)').run('post','owner','title','body','category','nickname',Date.now());db.prepare("UPDATE community_post_images SET post_id='post',status='attached' WHERE id=?").run(imageId)}
+function attach(imageId){db.prepare('INSERT INTO community_posts (id,owner_id,title,body,category,nickname,created_at) VALUES (?,?,?,?,?,?,?)').run('post','owner','title','body','category','nickname',Date.now());db.prepare("UPDATE community_post_images SET post_id='post',status='attached' WHERE id=?").run(imageId)}
 
 test('raster upload accepts actual PNG bytes and exposes only id, own URL and dimensions',async()=>{
   const image=await createUpload();assert.deepEqual(Object.keys(image).sort(),['height','id','url','width']);
