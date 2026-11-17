@@ -196,7 +196,7 @@ test('board migration rejects unreviewed data updates and destructive SQL before
   try {
     db.exec(await readMigration('0006_community_board.sql'));
     const { applyBoardSchema } = await import('../scripts/release-community.mjs');
-    const query = adapter(db), safe = await readMigration('0014_community_boards_channels_views.sql');
+    const query = adapter(db), safe = await readMigration('0015_community_boards_channels_views.sql');
     for (const unsafe of ["DELETE FROM community_posts", "UPDATE community_posts SET body='replacement'", 'DROP TABLE community_reports', 'CREATE TABLE IF NOT EXISTS stolen (secret TEXT)', 'CREATE TABLE IF NOT EXISTS community_channels AS SELECT * FROM community_reports', 'CREATE INDEX IF NOT EXISTS community_channels_name ON community_reports(owner_id)']) {
       await assert.rejects(() => applyBoardSchema(query, `${safe};${unsafe};`), /Unexpected statement/);
       assert.equal(db.prepare('PRAGMA table_info(community_posts)').all().some(row => row.name === 'original_category'), false);

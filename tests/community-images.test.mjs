@@ -35,7 +35,7 @@ beforeEach(()=>{
   db?.close();db = new DatabaseSync(':memory:');
   db.exec(readFileSync(new URL('migrations/0006_community_board.sql',root),'utf8'));
   db.exec(readFileSync(new URL('migrations/0012_community_post_images.sql',root),'utf8'));
-  db.exec(readFileSync(new URL('migrations/0014_community_boards_channels_views.sql',root),'utf8'));
+  db.exec(readFileSync(new URL('migrations/0015_community_boards_channels_views.sql',root),'utf8'));
   objects=new Map();background=[];
   env={DB:adapter(db),COMMUNITY_IMAGES:{
     async put(key,bytes,options){objects.set(key,{bytes:Uint8Array.from(bytes),options});return {key}},

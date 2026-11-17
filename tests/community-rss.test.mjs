@@ -34,7 +34,7 @@ beforeEach(() => {
   sqlite = new DatabaseSync(':memory:');
   // No account or session tables exist: the feed must work with only public board data.
   sqlite.exec(readFileSync(new URL('migrations/0006_community_board.sql', root), 'utf8'));
-  sqlite.exec(readFileSync(new URL('migrations/0014_community_boards_channels_views.sql', root), 'utf8'));
+  sqlite.exec(readFileSync(new URL('migrations/0015_community_boards_channels_views.sql', root), 'utf8'));
   statements = [];
   env = { DB: { prepare(sql) {
     assert.match(sql, /^SELECT\b/i, 'RSS must only read D1');

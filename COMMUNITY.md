@@ -25,7 +25,7 @@ Local Pages preview is `http://localhost:8788`. Do not test real Apple authoriza
 
 ## Production deployment
 
-Push `main` to the existing `dirndhkd97/workfolio` GitHub repository. `.github/workflows/deploy.yml` runs checks, builds Astro, runs the repeatable `scripts/release-community.mjs --apply` workflow through migration `0014`, prepares the existing private image storage, then deploys Cloudflare Pages. The existing `CLOUDFLARE_API_TOKEN` GitHub secret needs Pages deployment and D1 write permission for the existing account. Legacy SQL files are not replayed. Do not modify migrations after they have been applied; future schema changes need new files and matching workflow updates.
+Push `main` to the existing `dirndhkd97/workfolio` GitHub repository. `.github/workflows/deploy.yml` runs checks, builds Astro, runs the repeatable `scripts/release-community.mjs --apply` workflow through migration `0015`, prepares the existing private image storage, then deploys Cloudflare Pages. The existing `CLOUDFLARE_API_TOKEN` GitHub secret needs Pages deployment and D1 write permission for the existing account. Legacy SQL files are not replayed. Do not modify migrations after they have been applied; future schema changes need new files and matching workflow updates.
 
 ## Activate social login
 
@@ -79,7 +79,7 @@ No raw SET or raw member number is stored in event receipts or logged. A SHA-256
 
 ## Three boards, views, and user channels
 
-Migration `0014_community_boards_channels_views.sql` preserves every original category in `original_category` and maps the old overlapping boards into the three agreed boards. No post, author, comment, reaction, company snapshot, or image is removed. New posts only accept the three canonical categories. Old public board URLs redirect to their merged canonical board, and old home query bookmarks resolve to it. New historical view counts start at zero.
+Migration `0015_community_boards_channels_views.sql` preserves every original category in `original_category` and maps the old overlapping boards into the three agreed boards. No post, author, comment, reaction, company snapshot, or image is removed. New posts only accept the three canonical categories. Old public board URLs redirect to their merged canonical board, and old home query bookmarks resolve to it. New historical view counts start at zero.
 
 Public post readers, feed/detail APIs, RSS, sitemaps, and image access exclude hidden posts and posts outside an active channel. Views are incremented only by a same-origin POST after a detail has stayed visible for one second; GET and HEAD remain read-only. A server-issued HttpOnly visitor cookie or a hashed account key deduplicates a post for 24 hours. Issuance, requests, and record counts are bounded; expiry cleanup is opportunistic. This is an approximate counter, not unique-human analytics or exhaustive bot protection.
 

@@ -166,7 +166,7 @@ export async function applySchema(query, readMigration = name => readFile(`migra
     }
   }
   await query(await readMigration('0012_community_post_images.sql'));
-  await applyBoardSchema(query, await readMigration('0014_community_boards_channels_views.sql'));
+  await applyBoardSchema(query, await readMigration('0015_community_boards_channels_views.sql'));
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);
     if (required.some(column => !columns.includes(column))) throw new Error(`Required columns missing in ${table}.`);

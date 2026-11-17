@@ -52,7 +52,7 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:'); nextBatch = null;
-  for (const name of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0014_community_boards_channels_views.sql']) sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
+  for (const name of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0015_community_boards_channels_views.sql']) sqlite.exec(readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'));
   env = { DB: adapter(sqlite), COMMUNITY_MODERATOR_USER_IDS: 'moderator', COMMUNITY_IMAGES: { async get() { return { body: 'image', httpEtag: '"image"', writeHttpMetadata(headers) { headers.set('Content-Type', 'image/png'); } }; } } };
 });
 after(() => { sqlite.close(); rmSync(directory, { recursive: true, force: true }); delete globalThis.__channelTestIdentity; });

@@ -21,7 +21,7 @@ test('real workerd+D1 uses verified sessions, transactional audit, and exactly-o
   const runtime = new Miniflare({ modules: true, script: bundled.outputFiles[0].text, compatibilityDate: '2024-12-01', d1Databases: ['DB'], bindings: { COMMUNITY_MODERATOR_USER_IDS: 'platform' }, log: new Log(LogLevel.NONE), outboundService: () => new Response(null, {status: 500}) });
   try {
     const db = await runtime.getD1Database('DB');
-    for (const name of ['0005_community_auth.sql','0006_community_board.sql','0008_community_session_persistence.sql','0009_community_company_verification.sql','0010_community_post_company.sql','0011_community_admin_author.sql','0012_community_post_images.sql','0014_community_boards_channels_views.sql']) await db.batch(splitSql(readFileSync(new URL(`migrations/${name}`, root), 'utf8')).map(sql => db.prepare(sql)));
+    for (const name of ['0005_community_auth.sql','0006_community_board.sql','0008_community_session_persistence.sql','0009_community_company_verification.sql','0010_community_post_company.sql','0011_community_admin_author.sql','0012_community_post_images.sql','0015_community_boards_channels_views.sql']) await db.batch(splitSql(readFileSync(new URL(`migrations/${name}`, root), 'utf8')).map(sql => db.prepare(sql)));
     const cookies = {};
     for (const [user, char] of [['owner','a'],['platform','b'],['reader','c']]) {
       const token = char.repeat(43), hash = Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))).toString('base64url');

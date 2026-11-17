@@ -52,7 +52,7 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0014_community_boards_channels_views.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0015_community_boards_channels_views.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
   }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
