@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 const ACCOUNT = 'ae40d286be880d4faf549a14530875dc';
 const DATABASE = '070de128-ce30-40d1-9ba2-bc00e08cc073';
 const PROJECT = 'workfolio';
-const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges', 'community_post_images', 'community_image_upload_limits', 'community_channels', 'community_channel_audit', 'community_channel_limits', 'community_view_visitors', 'community_view_receipts', 'community_view_limits'];
+const TABLES = ['community_users', 'community_accounts', 'community_sessions', 'community_oauth_flows', 'community_posts', 'community_comments', 'community_reactions', 'community_reports', 'community_kakao_events', 'community_companies', 'community_company_domains', 'community_company_verifications', 'community_company_challenges', 'community_post_images', 'community_image_upload_limits', 'community_channels', 'community_channel_audit', 'community_channel_limits', 'community_view_visitors', 'community_view_receipts', 'community_view_limits',
+  'community_notifications', 'community_like_notifications', 'community_like_notification_members'];
 const REQUIRED = {
   community_sessions: ['token_hash', 'user_id', 'created_at', 'expires_at', 'remember_me'],
   community_oauth_flows: ['state_hash', 'provider', 'browser_hash', 'nonce', 'code_verifier', 'redirect_uri', 'return_to', 'expires_at', 'remember_me'],
@@ -18,6 +19,9 @@ const REQUIRED = {
   community_post_images: ['id', 'owner_id', 'object_key', 'post_id', 'status', 'position', 'content_type', 'byte_size', 'width', 'height', 'created_at', 'expires_at'],
   community_image_upload_limits: ['owner_id', 'window_started_at', 'attempts'],
   community_reports: ['post_id', 'owner_id', 'reason', 'created_at', 'share_with_channel', 'dismissed_at', 'channel_dismissed_at'],
+  community_notifications: ['comment_id', 'post_id', 'recipient_id', 'created_at', 'read_at'],
+  community_like_notifications: ['id', 'post_id', 'recipient_id', 'created_at', 'read_at', 'like_count'],
+  community_like_notification_members: ['notification_id', 'actor_id', 'added_at'],
   community_channels: ['id', 'owner_id', 'name', 'normalized_name', 'description', 'rules', 'status', 'created_at', 'reviewed_at', 'reviewed_by', 'review_note'],
   community_channel_audit: ['id', 'channel_id', 'post_id', 'actor_id', 'applicant_id', 'action', 'previous_state', 'next_state', 'note', 'created_at'],
   community_channel_limits: ['key', 'window_started_at', 'attempts'],
@@ -166,6 +170,8 @@ export async function applySchema(query, readMigration = name => readFile(`migra
     }
   }
   await query(await readMigration('0012_community_post_images.sql'));
+  await query(await readMigration('0013_community_notifications.sql'));
+  await query(await readMigration('0014_community_like_notifications.sql'));
   await applyBoardSchema(query, await readMigration('0015_community_boards_channels_views.sql'));
   for (const [table, required] of Object.entries(REQUIRED)) {
     const columns = (await query(`PRAGMA table_info(${table})`))[0].results.map(row => row.name);

@@ -39,23 +39,31 @@ interface StoredPost { id: string; owner_id: string; title: string; body: string
 function publicPost(row: StoredPost, userId: string | null): Post {
   return { id: row.id, title: row.title, body: row.body, category: row.category, nickname: row.nickname, companyName: row.company_name,
     isAdminAuthor: Boolean(row.company_name) && row.is_admin_author === 1, createdAt: row.created_at,
-    sample: false, images: [], viewCount: row.view_count, status: row.status, channelId: row.channel_id, channelName: row.channel_name, hiddenByScope: row.hidden_by_scope, reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], commentCount: 0, mine: row.owner_id === userId };
+    sample: false, images: [], viewCount: row.view_count, status: row.status, channelId: row.channel_id, channelName: row.channel_name, hiddenByScope: row.hidden_by_scope, reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], likeCount: 0, liked: false, commentCount: 0, mine: row.owner_id === userId };
 }
 async function enrich(db: D1Database, posts: Post[], userId: string | null): Promise<Post[]> {
   if (!posts.length) return [];
   const ids = posts.map((post) => post.id);
   const slots = ids.map(() => "?").join(",");
-  const [counts, commentCounts, own, images] = await Promise.all([
-    db.prepare(`SELECT post_id, reaction, COUNT(*) AS count FROM community_reactions WHERE active = 1 AND post_id IN (${slots}) GROUP BY post_id, reaction`).bind(...ids).all<{ post_id: string; reaction: Reaction; count: number }>(),
+  const [counts, commentCounts, likes, images] = await Promise.all([
+    db.prepare(`SELECT post_id, reaction, COUNT(*) AS count, MAX(CASE WHEN owner_id = ? THEN 1 ELSE 0 END) AS mine FROM community_reactions WHERE active = 1 AND post_id IN (${slots}) GROUP BY post_id, reaction`).bind(userId, ...ids).all<{ post_id: string; reaction: Reaction; count: number; mine: number }>(),
     db.prepare(`SELECT post_id, COUNT(*) AS count FROM community_comments WHERE post_id IN (${slots}) GROUP BY post_id`).bind(...ids).all<{ post_id: string; count: number }>(),
-    userId ? db.prepare(`SELECT post_id, reaction FROM community_reactions WHERE owner_id = ? AND active = 1 AND post_id IN (${slots})`).bind(userId, ...ids).all<{ post_id: string; reaction: Reaction }>() : Promise.resolve({ results: [] }),
+    db.prepare(`SELECT post_id, COUNT(DISTINCT owner_id) AS count FROM community_reactions WHERE active = 1 AND post_id IN (${slots}) GROUP BY post_id`).bind(...ids).all<{post_id:string; count:number}>(),
     db.prepare(`SELECT id, post_id, width, height FROM community_post_images WHERE status = 'attached' AND post_id IN (${slots}) ORDER BY position, id`).bind(...ids).all<{id:string;post_id:string;width:number;height:number}>(),
   ]);
-  return posts.map((post) => {
+  const likesByPost = new Map(likes.results.map(row => [row.post_id, row.count]));
+  const commentsByPost = new Map(commentCounts.results.map(row => [row.post_id, row.count]));
+  return posts.map(post => {
     const reactions = { same: 0, laugh: 0, cheer: 0 };
-    for (const item of counts.results) if (item.post_id === post.id && REACTIONS.includes(item.reaction)) reactions[item.reaction] = item.count;
-    return { ...post, images: images.results.filter(image => image.post_id === post.id).map(publicImage), reactions, commentCount: commentCounts.results.find((item) => item.post_id === post.id)?.count ?? 0,
-      myReactions: own.results.filter((item) => item.post_id === post.id).map((item) => item.reaction) };
+    const myReactions: Reaction[] = [];
+    for (const item of counts.results) {
+      if (item.post_id !== post.id || !REACTIONS.includes(item.reaction)) continue;
+      reactions[item.reaction] = item.count;
+      if (item.mine) myReactions.push(item.reaction);
+    }
+    return { ...post, reactions, myReactions, likeCount: likesByPost.get(post.id) ?? 0, liked: myReactions.length > 0,
+      commentCount: commentsByPost.get(post.id) ?? 0,
+      images: images.results.filter(image => image.post_id === post.id).map(publicImage) };
   });
 }
 async function getPost(db: D1Database, id: string, userId: string | null): Promise<Post> {
@@ -63,6 +71,55 @@ async function getPost(db: D1Database, id: string, userId: string | null): Promi
   if (!row) throw new BoardError("삭제되었거나 찾을 수 없는 이야기예요.", 404);
   return (await enrich(db, [publicPost(row, userId)], userId))[0];
 }
+async function changePostReaction(db: D1Database, postId: string, ownPost: boolean, actor: string, change: { liked: boolean } | { toggle: Reaction }): Promise<void> {
+  const toggle = "toggle" in change;
+  const canAddLike = toggle || change.liked;
+  const visible = `EXISTS (SELECT 1 FROM community_posts p WHERE p.id = ? AND ${PUBLIC_POST_SQL})`;
+  const setReaction = canAddLike
+    ? db.prepare(`INSERT INTO community_reactions (post_id, owner_id, reaction, active)
+        SELECT ?, ?, ?, 1 WHERE ${visible}
+        ON CONFLICT(post_id, owner_id, reaction) DO UPDATE SET active = ${toggle ? "1 - active" : "1"}`)
+        .bind(postId, actor, toggle ? change.toggle : "same", postId)
+    : db.prepare(`UPDATE community_reactions SET active = 0 WHERE post_id = ? AND owner_id = ? AND active = 1 AND ${visible}`)
+        .bind(postId, actor, postId);
+  if (ownPost) {
+    await setReaction.run();
+    return;
+  }
+
+  const now = Date.now();
+  const dayMs = 86_400_000;
+  const seoulOffsetMs = 9 * 3_600_000;
+  const dayStart = Math.floor((now + seoulOffsetMs) / dayMs) * dayMs - seoulOffsetMs;
+  // An unread group spans days. Reading it silences further likes through that Seoul day.
+  const currentGroup = `SELECT id FROM community_like_notifications
+    WHERE post_id = ? AND (read_at IS NULL OR read_at >= ?)
+      AND EXISTS (SELECT 1 FROM community_posts p WHERE p.id = community_like_notifications.post_id AND ${PUBLIC_POST_SQL})
+    ORDER BY (read_at IS NULL) DESC, read_at DESC LIMIT 1`;
+  // Only the first active reaction from a person adds them. Removing their last one withdraws
+  // their contribution. Both checks share a transaction with the actual reaction write.
+  const noActiveReaction = "NOT EXISTS (SELECT 1 FROM community_reactions WHERE post_id = ? AND owner_id = ? AND active = 1)";
+  const statements: D1PreparedStatement[] = [];
+  if (canAddLike) {
+    statements.push(
+      db.prepare(`INSERT INTO community_like_notifications (id, post_id, recipient_id, created_at)
+        SELECT ?, p.id, p.owner_id, ? FROM community_posts AS p WHERE p.id = ? AND p.owner_id <> ? AND ${PUBLIC_POST_SQL}
+          AND ${noActiveReaction} AND NOT EXISTS (${currentGroup})`)
+        .bind(`like:${crypto.randomUUID()}`, now, postId, actor, postId, actor, postId, dayStart),
+      db.prepare(`INSERT INTO community_like_notification_members (notification_id, actor_id, added_at)
+        SELECT id, ?, ? FROM (${currentGroup}) WHERE ${noActiveReaction}
+        ON CONFLICT(notification_id, actor_id) DO NOTHING`).bind(actor, now, postId, dayStart, postId, actor),
+    );
+  }
+  statements.push(setReaction);
+  if (toggle || !change.liked) {
+    statements.push(db.prepare(`DELETE FROM community_like_notification_members
+      WHERE actor_id = ? AND notification_id = (${currentGroup}) AND ${noActiveReaction}`)
+      .bind(actor, postId, dayStart, postId, actor));
+  }
+  await db.batch(statements);
+}
+
 export const onRequestGet: PagesFunction<CommunityChannelEnv> = async ({ request, env }) => {
   try {
     const db = database(env);
@@ -116,7 +173,7 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
         : "회사를 공개하려면 회사 이메일 인증을 완료해 주세요. 인증이 만료됐다면 다시 인증해 주세요.",403);
       return json({ post: await getPost(db, id, userId) }, 201);
     }
-    if (!["comment", "react", "report", "delete"].includes(String(data.action))) throw new BoardError("지원하지 않는 요청이에요.");
+    if (!["comment", "react", "like", "report", "delete"].includes(String(data.action))) throw new BoardError("지원하지 않는 요청이에요.");
     const id = validPostId(data.postId);
     const post = data.action === "delete"
       ? await db.prepare("SELECT owner_id FROM community_posts WHERE id = ?").bind(id).first<{owner_id:string}>().then(row => { if (!row) throw new BoardError("삭제되었거나 찾을 수 없는 이야기예요.",404); return { mine: row.owner_id === userId }; })
@@ -150,11 +207,14 @@ export const onRequestPost: PagesFunction<CommunityImageEnv> = async ({ request,
       if (!result.meta.changes) throw new BoardError("이미 삭제된 이야기예요.", 404);
       return json({ comment }, 201);
     }
+    if (data.action === "like") {
+      if (typeof data.liked !== "boolean") throw new BoardError("좋아요 상태를 확인해 주세요.");
+      await changePostReaction(db, id, post.mine, userId, { liked: data.liked });
+      return json({ post: await getPost(db, id, userId) });
+    }
     if (data.action === "react") {
       if (!REACTIONS.includes(data.reaction as Reaction)) throw new BoardError("올바른 공감을 선택해 주세요.");
-      const result = await db.prepare(`INSERT INTO community_reactions (post_id, owner_id, reaction, active) SELECT ?, ?, ?, 1 WHERE ${exists} ON CONFLICT(post_id, owner_id, reaction) DO UPDATE SET active = 1 - active`)
-        .bind(id, userId, data.reaction as string, id).run();
-      if (!result.meta.changes) throw new BoardError("이미 삭제된 이야기예요.", 404);
+      await changePostReaction(db, id, post.mine, userId, { toggle: data.reaction as Reaction });
       return json({ post: await getPost(db, id, userId) });
     }
     const reason = textField(data.reason, "신고 사유", LIMITS.report, 2);

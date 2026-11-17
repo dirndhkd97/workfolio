@@ -8,6 +8,8 @@ Anonymous visitors can read posts and comments and search the current feed. Crea
 
 The feed fetches the latest 60 public real posts. The three base boards are 빡대가리 게시판, 월급루팡, and 퇴사각 상담소; user channels are separate approved topical spaces. Trending uses real reactions/comments on posts from the past seven days. No fictional examples, fake engagement, or fabricated historical views are added.
 
+The community menu shows an unread indicator when another account comments on or likes your post. Each comment gets its own notification. Likes on a post share one unread notification showing the number of people in that group. After the author reads it, further likes on that post update the same entry quietly until midnight in Korea. Opening a notification marks it as read and takes you to its post. Notifications start with new comments after migration `0013` and new likes after `0014`. Deleting the post also removes its notifications.
+
 ## Build and verification
 
 ```sh

@@ -117,6 +117,7 @@ test('post HTML contains the complete escaped discussion, metadata and real comm
   sqlite.prepare('INSERT INTO community_comments VALUES (?, ?, ?, ?, ?, ?)')
     .run('comment-1', 'real-post', 'private-comment-owner', '<svg onload="alert(2)">댓글</svg>', '댓글 & 친구', createdAt + 1000);
   sqlite.prepare('INSERT INTO community_reactions VALUES (?, ?, ?, ?)').run('real-post', 'private-react-owner', 'same', 1);
+  sqlite.prepare('INSERT INTO community_reactions VALUES (?, ?, ?, ?)').run('real-post', 'private-react-owner', 'cheer', 1);
   sqlite.prepare('INSERT INTO community_reactions VALUES (?, ?, ?, ?)').run('real-post', 'inactive-owner', 'laugh', 0);
   const response = await request(post, '/posts/real-post?utm_source=test', { id: 'real-post' });
   const html = await response.text();
@@ -127,7 +128,7 @@ test('post HTML contains the complete escaped discussion, metadata and real comm
   assert.match(html, /rel="canonical" href="https:\/\/workfolio\.life\/posts\/real-post"/);
   assert.match(html, /property="og:title"/);
   assert.match(html, /href="\/\?story=real-post"/);
-  assert.match(html, /공감 1/);
+  assert.match(html, /좋아요 1/);
   assert.match(html, /댓글 1/);
   assert.doesNotMatch(html, /<script>alert|<svg onload|<img src=x/);
   assert.doesNotMatch(html, /private-owner|private-comment-owner|private-react-owner|owner_id|ignored-session/);
@@ -142,7 +143,7 @@ test('post HTML contains the complete escaped discussion, metadata and real comm
   assert.equal(data.commentCount, 1);
   assert.equal(response.headers.get('Set-Cookie'), null);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
-  assert.ok(statements.every(sql => !sql.includes('owner_id') && !sql.includes('community_sessions')));
+  assert.ok(statements.every(sql => !sql.replace('COUNT(DISTINCT owner_id)', '').includes('owner_id') && !sql.includes('community_sessions')));
 });
 
 test('retired editorial samples return 404 and cannot reappear from a legacy database row', async () => {

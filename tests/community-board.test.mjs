@@ -52,7 +52,7 @@ function adapter(connection) {
 }
 beforeEach(() => {
   sqlite?.close(); sqlite = new DatabaseSync(':memory:');
-  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0015_community_boards_channels_views.sql']) {
+  for (const file of ['0005_community_auth.sql', '0006_community_board.sql', '0009_community_company_verification.sql', '0010_community_post_company.sql', '0011_community_admin_author.sql', '0012_community_post_images.sql', '0013_community_notifications.sql', '0014_community_like_notifications.sql', '0015_community_boards_channels_views.sql']) {
     sqlite.exec(readFileSync(new URL(`migrations/${file}`,root),'utf8'));
   }
   sqlite.exec("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT); INSERT INTO customers VALUES (1, 'existing@example.test');");
@@ -99,6 +99,8 @@ test('anonymous visitors can read lists and details but every write requires log
   assert.equal(detail.post.mine,false);
   assert.deepEqual(detail.post.myReactions,[]);
   assert.equal(detail.post.reactions.same,1);
+  assert.equal(detail.post.liked,false);
+  assert.equal(detail.post.likeCount,1);
   assert.equal(detail.comments[0].body,'비회원에게도 보이는 댓글이에요.');
   assert.equal('reports' in detail,false);
 
@@ -108,6 +110,7 @@ test('anonymous visitors can read lists and details but every write requires log
     draft,
     {action:'comment',postId:post.id,body:'로그인 없이 남기는 댓글'},
     {action:'react',postId:post.id,reaction:'same'},
+    {action:'like',postId:post.id,liked:true},
     {action:'report',postId:post.id,reason:'로그인 없이 신고하기'},
     {action:'delete',postId:post.id},
   ]) {
@@ -131,6 +134,46 @@ test('reaction toggle is per user and kind, with accurate active counts',async (
   let result = await (await list('owner',post.id)).json(); assert.equal(result.post.reactions.same,2); assert.deepEqual(result.post.myReactions,['same']);
   result = await (await mutate({action:'react',postId:post.id,reaction:'same'})).json(); assert.equal(result.post.reactions.same,1); assert.deepEqual(result.post.myReactions,[]);
   assert.equal((await mutate({action:'react',postId:post.id,reaction:'invalid'})).status,400);
+});
+test('likes are per account and retrying the same state preserves the count', async () => {
+  const post = await create();
+  const setLike = async (user, liked) => {
+    const response = await mutate({action:'like',postId:post.id,liked},user);
+    assert.equal(response.status,200);
+    const {post:updated} = await response.json();
+    assert.equal(updated.liked,liked);
+    return updated.likeCount;
+  };
+  assert.equal(await setLike('owner',true),1);
+  assert.equal(await setLike('owner',true),1);
+  assert.equal(await setLike('visitor',true),2);
+  assert.equal(await setLike('owner',false),1);
+  assert.equal(await setLike('owner',false),1);
+  const visitorFeed = await (await list('visitor')).json();
+  assert.equal(visitorFeed.posts.find(entry => entry.id === post.id).liked,true);
+  assert.equal((await mutate({action:'like',postId:post.id,liked:'false'})).status,400);
+});
+
+test('multiple active legacy reactions count as one like and can be removed together', async () => {
+  const post = await create();
+  const add = sqlite.prepare('INSERT INTO community_reactions VALUES (?, ?, ?, ?)');
+  add.run(post.id, 'owner', 'cheer', 1);
+  add.run(post.id, 'owner', 'laugh', 1);
+  add.run(post.id, 'owner', 'same', 0);
+  add.run(post.id, 'visitor', 'same', 1);
+  add.run(post.id, 'inactive-account', 'cheer', 0);
+  const own = (await (await list('owner',post.id)).json()).post;
+  assert.equal(own.likeCount,2);
+  assert.equal(own.liked,true);
+  const updated = (await (await mutate({action:'like',postId:post.id,liked:false})).json()).post;
+  assert.equal(updated.likeCount,1);
+  assert.equal(updated.liked,false);
+  const visitor = (await (await list('visitor',post.id)).json()).post;
+  assert.equal(visitor.likeCount,1);
+  assert.equal(visitor.liked,true);
+  const restored = (await (await mutate({action:'like',postId:post.id,liked:true})).json()).post;
+  assert.equal(restored.likeCount,2);
+  assert.equal(restored.liked,true);
 });
 test('comments and private reports persist, and reporting twice updates instead of duplicating',async () => {
   const post = await create();
@@ -333,7 +376,7 @@ test('admin display certification grants no extra deletion permissions or commen
 test('retired generated examples cannot be read or receive new engagement', async () => {
   for (const id of ['sample-01','sample-02','sample-03','sample-04','sample-05','sample-06']) {
     assert.equal((await list(null,id)).status,404);
-    for (const action of ['comment','react','report','delete']) assert.equal((await mutate({action,postId:id,body:'생성된 예시 글 댓글',reaction:'same',reason:'확인 요청입니다.'})).status,404);
+    for (const action of ['comment','react','like','report','delete']) assert.equal((await mutate({action,postId:id,liked:true,body:'생성된 예시 글 댓글',reaction:'same',reason:'확인 요청입니다.'})).status,404);
   }
   for (const table of ['community_posts','community_comments','community_reactions','community_reports']) assert.equal(sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,0);
 });

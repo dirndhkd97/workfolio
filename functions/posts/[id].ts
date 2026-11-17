@@ -11,10 +11,10 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
         (SELECT name FROM community_channels WHERE id = community_posts.channel_id) AS channel_name
       FROM community_posts WHERE id = ? AND ${REAL_POSTS}`).bind(id).first<PublicPost & { channel_id: string | null; channel_name: string | null }>();
     if (!post) return unavailablePage(404);
-    const [comments, commentTotal, reactions, attachmentRows] = await Promise.all([
+    const [comments, commentTotal, likes, attachmentRows] = await Promise.all([
       env.DB.prepare('SELECT id, body, nickname, created_at FROM community_comments WHERE post_id = ? ORDER BY created_at ASC, id ASC LIMIT 500').bind(id).all<PublicComment>(),
       env.DB.prepare('SELECT COUNT(*) AS count FROM community_comments WHERE post_id = ?').bind(id).first<{ count: number }>(),
-      env.DB.prepare('SELECT COUNT(*) AS count FROM community_reactions WHERE post_id = ? AND active = 1').bind(id).first<{ count: number }>(),
+      env.DB.prepare('SELECT COUNT(DISTINCT owner_id) AS count FROM community_reactions WHERE post_id = ? AND active = 1').bind(id).first<{ count: number }>(),
       env.DB.prepare("SELECT id, width, height FROM community_post_images WHERE post_id = ? AND status = 'attached' ORDER BY position, created_at, id").bind(id).all<{ id: string; width: number; height: number }>(),
     ]);
     const images = attachmentRows.results.map(image => ({ ...image, url: `/api/community-images/${encodeURIComponent(image.id)}` }));
@@ -43,9 +43,9 @@ export const onRequest: PagesFunction<CommunitySeoEnv> = ({ request, env, params
 <div class="reader-meta">${companyAuthorMarkup(post)}<span aria-hidden="true">·</span><span>${esc(post.nickname)}</span>${timeMarkup(post.created_at)}</div>
 <p class="reader-body">${esc(post.body)}</p>
 ${gallery}
-<div class="reader-stats"><span data-view-count title="같은 계정·브라우저의 반복 열람을 제한한 참고용 수치">조회 ${Number.isSafeInteger(post.view_count) && post.view_count >= 0 ? post.view_count : 0}</span><span>공감 ${reactions?.count ?? 0}</span><span>댓글 ${count}</span></div>
+<div class="reader-stats"><span data-view-count title="같은 계정·브라우저의 반복 열람을 제한한 참고용 수치">조회 ${Number.isSafeInteger(post.view_count) && post.view_count >= 0 ? post.view_count : 0}</span><span>좋아요 ${likes?.count ?? 0}</span><span>댓글 ${count}</span></div>
 ${postShareMarkup(post.id, post.title)}
-<div class="reader-actions"><a class="reader-primary" href="${join}">공감하고 댓글 남기기</a>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)} 더 보기 →</a>` : ''}</div>
+<div class="reader-actions"><a class="reader-primary" href="${join}">좋아요·댓글 남기기</a>${board ? `<a href="${boardPath(board.slug)}">${esc(board.category)} 더 보기 →</a>` : ''}</div>
 </article>
 <section class="reader-card reader-comments" aria-labelledby="comments-heading"><h2 id="comments-heading">댓글 ${count}</h2>
 ${comments.results.length ? comments.results.map(comment => `<article class="reader-comment"><div class="reader-meta"><strong>${esc(comment.nickname)}</strong>${timeMarkup(comment.created_at)}</div><p class="reader-body">${esc(comment.body)}</p></article>`).join('') : '<p class="reader-empty">아직 댓글이 없어요. 첫 번째 이야기를 보태주세요.</p>'}

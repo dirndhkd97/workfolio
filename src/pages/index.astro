@@ -9,7 +9,7 @@ import { BOARD_PAGES, boardPath } from '../lib/community/seo';
   <section class="community-intro" aria-labelledby="community-about">
     <span class="intro-kicker">회사에선 못 한 말</span>
     <h2 id="community-about">회사 뒷담 갤 감성, 퇴근 후엔 직함 빼고.</h2>
-    <p>상사 때문에 쌓인 스트레스, 말도 안 되는 회의, 오늘 또 저지른 실수. Workfolio는 회사 생활의 뒷이야기를 별명으로 나누는 직장인 익명 커뮤니티예요. 눈팅은 로그인 없이, 썰 풀기와 댓글·공감은 로그인하고 함께해요.</p>
+    <p>상사 때문에 쌓인 스트레스, 말도 안 되는 회의, 오늘 또 저지른 실수. Workfolio는 회사 생활의 뒷이야기를 별명으로 나누는 직장인 익명 커뮤니티예요. 눈팅은 로그인 없이, 썰 풀기와 댓글·좋아요는 로그인하고 함께해요.</p>
     <details>
       <summary>‘어둠의 블라인드’ 같은 편한 커뮤니티를 찾고 있나요?</summary>
       <p>회사에서 쓰는 직함을 내려놓고 별명으로 이야기하는 퇴근 후 아지트예요. 빡대가리 게시판에서 내 실수와 회사 썰을 풀고, 월급루팡에서 쉬어가고, 퇴사각 상담소에서 고민을 나눠요. 더 가까운 주제는 이용자 채널로 신청할 수 있어요. Workfolio는 독립적으로 운영하며 블라인드와 제휴한 서비스가 아니에요.</p>
@@ -18,7 +18,7 @@ import { BOARD_PAGES, boardPath } from '../lib/community/seo';
       {BOARD_PAGES.map(board => <a href={boardPath(board.slug)}><strong>{board.category}</strong><span>{board.description}</span></a>)}
     </nav>
   </section>
-  <noscript><p class="community-noscript">위 게시판 링크에서 글과 댓글을 읽을 수 있어요. 글쓰기·댓글·공감에 참여하려면 JavaScript를 켜주세요.</p></noscript>
+  <noscript><p class="community-noscript">위 게시판 링크에서 글과 댓글을 읽을 수 있어요. 글쓰기·댓글·좋아요에 참여하려면 JavaScript를 켜주세요.</p></noscript>
 </CommunityLayout>
 
 <style>

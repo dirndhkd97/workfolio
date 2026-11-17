@@ -28,8 +28,10 @@ export const onRequestGet: PagesFunction<CommunityChannelEnv> = async ({ request
       if (!moderator && row.owner_id !== userId) throw new BoardError('이 채널을 관리할 권한이 없어요.', 403);
       if (row.status !== 'active') throw new BoardError('승인된 채널만 관리할 수 있어요.', 409);
       const posts = await env.DB.prepare(`SELECT p.id,p.title,p.body,p.category,p.nickname,p.company_name,p.is_admin_author,p.created_at,p.status,p.hidden_by_scope,p.view_count,
+        (SELECT COUNT(DISTINCT r.owner_id) FROM community_reactions r WHERE r.post_id = p.id AND r.active = 1) AS like_count,
+        EXISTS (SELECT 1 FROM community_reactions r WHERE r.post_id = p.id AND r.owner_id = ? AND r.active = 1) AS liked,
         CASE WHEN p.owner_id = ? THEN 1 ELSE 0 END AS mine FROM community_posts p WHERE p.channel_id = ? ${moderator ? '' : "AND (p.status = 'published' OR p.hidden_by_scope = 'channel')"} ORDER BY p.created_at DESC,p.id DESC LIMIT 200`)
-        .bind(userId, row.id).all<{id:string;title:string;body:string;category:Post['category'];nickname:string;company_name:string|null;is_admin_author:number;created_at:number;status:Post['status'];hidden_by_scope:Post['hiddenByScope'];view_count:number;mine:number}>();
+        .bind(userId, userId, row.id).all<{id:string;title:string;body:string;category:Post['category'];nickname:string;company_name:string|null;is_admin_author:number;created_at:number;status:Post['status'];hidden_by_scope:Post['hiddenByScope'];view_count:number;like_count:number;liked:number;mine:number}>();
       // Consent is per report. Existing reports default to platform-private. No reporter identifier is selected.
       const reports = await env.DB.prepare(`SELECT 'report-' || r.rowid AS id,r.post_id AS postId,r.reason,r.created_at AS createdAt
         FROM community_reports r JOIN community_posts p ON p.id = r.post_id
@@ -38,7 +40,7 @@ export const onRequestGet: PagesFunction<CommunityChannelEnv> = async ({ request
         id: post.id, title: post.title, body: post.body, category: post.category, nickname: post.nickname,
         companyName: post.company_name, isAdminAuthor: Boolean(post.company_name) && post.is_admin_author === 1, createdAt: post.created_at,
         status: post.status, hiddenByScope: post.hidden_by_scope, viewCount: post.view_count, channelId: row.id, channelName: row.name,
-        mine: post.mine === 1, sample: false, images: [], reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], commentCount: 0,
+        mine: post.mine === 1, sample: false, images: [], reactions: { same: 0, laugh: 0, cheer: 0 }, myReactions: [], likeCount: post.like_count, liked: post.liked === 1, commentCount: 0,
       })), reports: reports.results, signedIn: true, isModerator: moderator });
     }
     if (params.get('review') === '1') {

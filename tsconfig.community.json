@@ -22,6 +22,7 @@
     "src/lib/community/**/*",
     "functions/api/board.ts",
     "functions/api/channels.ts",
+    "functions/api/community-notifications.ts",
     "functions/api/views.ts",
     "functions/_lib/community-channels.ts",
     "functions/_lib/community-views.ts",

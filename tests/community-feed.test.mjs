@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { engagementCount, getTrendingPosts } from '../src/lib/community/feed.ts';
+import { getTrendingPosts } from '../src/lib/community/feed.ts';
 
 const hour = 60 * 60 * 1000;
 const now = Date.UTC(2026, 10, 12, 9);
 const post = (id, patch = {}) => ({
   id, title: '오늘의 실수', body: '오늘도 실수했지만 무사히 퇴근합니다.',
   category: '빡대가리 게시판', nickname: '익명', createdAt: now - hour,
-  sample: false, reactions: { same: 0, laugh: 0, cheer: 0 },
-  myReactions: [], commentCount: 0, mine: false, ...patch,
+  sample: false, likeCount: 0,
+  liked: false, commentCount: 0, mine: false, ...patch,
 });
 
 test('trending contains only real, recent posts with actual activity', () => {
@@ -26,11 +26,10 @@ test('trending contains only real, recent posts with actual activity', () => {
 
 test('fresh activity can outrank older totals, and comments carry two points', () => {
   const candidates = [
-    post('older', { createdAt: now - 48 * hour, reactions: { same: 100, laugh: 0, cheer: 0 } }),
-    post('newer', { reactions: { same: 4, laugh: 1, cheer: 1 } }),
+    post('older', { createdAt: now - 48 * hour, likeCount: 100 }),
+    post('newer', { likeCount: 6 }),
     post('conversation', { commentCount: 4 }),
   ];
-  assert.equal(engagementCount(candidates[1]), 6);
   assert.deepEqual(getTrendingPosts(candidates, now).map(p => p.id), ['conversation', 'newer', 'older']);
 });
 

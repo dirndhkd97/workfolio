@@ -20,6 +20,8 @@ export interface Post {
   sample: boolean;
   reactions: Record<Reaction, number>;
   myReactions: Reaction[];
+  likeCount: number;
+  liked: boolean;
   commentCount: number;
   mine: boolean;
   viewCount: number;
